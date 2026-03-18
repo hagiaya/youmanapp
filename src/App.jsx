@@ -581,6 +581,14 @@ const ProfilView = ({ streak, bestStreak, onReset, setActiveTab, userId }) => {
                     <span style={{ fontWeight: '500', color: '#FF3B30' }}>Reset Semua Data</span>
                     <ChevronRight size={18} color="#FF3B30" />
                 </div>
+
+                <div 
+                    onClick={() => { localStorage.removeItem('youman_is_logged_in'); window.location.reload(); }} 
+                    className="glass-card" 
+                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', cursor: 'pointer', marginTop: '12px', background: 'rgba(255, 59, 48, 0.1)' }}
+                >
+                    <span style={{ fontWeight: 'bold', color: '#ff6b6b' }}>Keluar (Logout)</span>
+                </div>
             </div>
         </motion.div>
     );
@@ -609,7 +617,113 @@ class AppErrorBoundary extends React.Component {
     }
 }
 
+// --- AUTHENTICATION COMPONENT ---
+const AuthView = ({ onLoginSuccess }) => {
+    const [isLogin, setIsLogin] = useState(true);
+    const [loading, setLoading] = useState(false);
+    const [formData, setFormData] = useState({ name: '', email: '', phone: '', password: '' });
+    const [errorMsg, setErrorMsg] = useState('');
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        setErrorMsg('');
+
+        try {
+            if (isLogin) {
+                // Proses Login
+                const { data, error } = await supabase.from('users')
+                    .select('*')
+                    .eq('email', formData.email)
+                    .eq('password', formData.password)
+                    .single();
+
+                if (error || !data) throw new Error('Email atau password salah!');
+                
+                // Cek verifikasi admin (kolom phone_verified bertindak sbg indikator approval admin)
+                if (!data.phone_verified) {
+                    throw new Error('Akun Anda belum diberifikasi oleh Admin. Harap tunggu persetujuan.');
+                }
+
+                // Berhasil login
+                onLoginSuccess(data.id);
+            } else {
+                // Proses Register
+                const { data: existingUser } = await supabase.from('users').select('id').eq('email', formData.email).single();
+                if (existingUser) throw new Error('Email sudah terdaftar!');
+
+                const { error, data } = await supabase.from('users').insert([{
+                    name: formData.name,
+                    email: formData.email,
+                    phone: formData.phone,
+                    password: formData.password,
+                    phone_verified: false, // Memerlukan verifikasi admin
+                    role: 'User'
+                }]).select('*').single();
+
+                if (error) throw error;
+                alert('Pendaftaran berhasil! Akun Anda sekarang sedang menunggu "Verifikasi Admin". Anda belum bisa masuk sampai Admin menyetujui.');
+                setIsLogin(true);
+            }
+        } catch (err) {
+            setErrorMsg(err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <div className="app-container" style={{ background: '#050505', color: '#FFF', minHeight: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '24px' }}>
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-card" style={{ padding: '32px 24px' }}>
+                <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+                    <h1 style={{ margin: 0, fontSize: '28px', fontWeight: '800', letterSpacing: '2px', background: 'linear-gradient(90deg, #FFFFFF 0%, #888888 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>YOUMAN</h1>
+                    <p style={{ color: '#888', marginTop: '8px', fontSize: '14px' }}>{isLogin ? 'Masuk ke Sistem Kedisiplinan' : 'Mulai Perjalanan Anda'}</p>
+                </div>
+
+                {errorMsg && (
+                    <div style={{ background: '#ef444420', border: '1px solid #ef4444', color: '#ef4444', padding: '12px', borderRadius: '8px', marginBottom: '24px', fontSize: '14px', textAlign: 'center' }}>
+                        {errorMsg}
+                    </div>
+                )}
+
+                <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    {!isLogin && (
+                        <>
+                            <input type="text" placeholder="Nama Lengkap" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} required style={{ width: '100%', padding: '14px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#FFF' }} />
+                            <input type="tel" placeholder="Nomor WhatsApp" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} required style={{ width: '100%', padding: '14px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#FFF' }} />
+                        </>
+                    )}
+                    <input type="email" placeholder="Alamat Email" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} required style={{ width: '100%', padding: '14px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#FFF' }} />
+                    <input type="password" placeholder="Password" value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} required style={{ width: '100%', padding: '14px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#FFF' }} />
+
+                    <button type="submit" disabled={loading} className="btn-primary" style={{ marginTop: '8px' }}>
+                        {loading ? 'Memproses...' : (isLogin ? 'Masuk (Log In)' : 'Daftar Sekarang')}
+                    </button>
+                </form>
+
+                <div style={{ textAlign: 'center', marginTop: '24px' }}>
+                    <button onClick={() => { setIsLogin(!isLogin); setErrorMsg(''); }} style={{ background: 'none', border: 'none', color: '#888', textDecoration: 'underline', cursor: 'pointer', fontSize: '14px' }}>
+                        {isLogin ? 'Belum punya akun? Daftar di sini.' : 'Sudah punya akun? Masuk di sini.'}
+                    </button>
+                </div>
+            </motion.div>
+        </div>
+    );
+};
+
 export default function App() {
+    const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('youman_is_logged_in'));
+
+    const handleLoginSuccess = (userId) => {
+        localStorage.setItem('youman_is_logged_in', 'true');
+        localStorage.setItem('youman_user_id', userId); // Force use verified user ID
+        setIsLoggedIn(true);
+    };
+
+    if (!isLoggedIn) {
+        return <AuthView onLoginSuccess={handleLoginSuccess} />;
+    }
+
     return (
         <AppErrorBoundary>
             <AppContent />

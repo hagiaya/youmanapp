@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS public.users (
   name VARCHAR(255) NOT NULL,
   email VARCHAR(255) UNIQUE NOT NULL,
   phone VARCHAR(50),
+  password VARCHAR(255), -- DIGUNAKAN UNTUK LOGIN
   phone_verified BOOLEAN DEFAULT false,
   role VARCHAR(50) DEFAULT 'User' CHECK (role IN ('User', 'Admin')),
   created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -74,8 +75,8 @@ BEGIN;
 COMMIT;
 
 -- (OPSIONAL) DUMMY DATA AGAR TABEL TIDAK KOSONG SAAT UJI COBA PERTAMA
-INSERT INTO public.users (name, email, phone, phone_verified, role) 
-VALUES ('Reza Latandrang', 'reza@youman.com', '08122334455', true, 'Admin')
+INSERT INTO public.users (name, email, phone, password, phone_verified, role) 
+VALUES ('Reza Latandrang', 'reza@youman.com', '08122334455', 'admin123', true, 'Admin')
 ON CONFLICT (email) DO NOTHING;
 
 INSERT INTO public.products (name, price, stock, sales) 

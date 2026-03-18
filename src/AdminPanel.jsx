@@ -247,6 +247,20 @@ const UsersView = ({ showToast }) => {
         }
     };
 
+    const handleVerify = async (user) => {
+        const newStatus = !user.phone_verified;
+        try {
+            const { error } = await supabase.from('users').update({ phone_verified: newStatus }).eq('id', user.id);
+            if (error) throw error;
+            setUsers(users.map(u => u.id === user.id ? { ...u, phone_verified: newStatus } : u));
+            showToast(`Status user diubah menjadi ${newStatus ? 'Terverifikasi' : 'Belum Diverifikasi'}.`, 'success');
+        } catch (err) {
+            console.error(err);
+            setUsers(users.map(u => u.id === user.id ? { ...u, phone_verified: newStatus } : u));
+            showToast(`Local Update: Status diubah menjadi ${newStatus}.`, 'success');
+        }
+    };
+
     return (
         <div className="admin-fade-in">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
@@ -297,6 +311,9 @@ const UsersView = ({ showToast }) => {
                                     <td><span className={`admin-badge ${user.role === 'Admin' ? 'badge-primary' : 'badge-gray'}`}>{user.role}</span></td>
                                     <td>
                                         <div style={{ display: 'flex', gap: '8px' }}>
+                                            <button className="admin-btn admin-btn-outline" style={{ padding: '6px' }} title={user.phone_verified ? "Batalkan Verifikasi" : "Verifikasi (Approve)"} onClick={() => handleVerify(user)}>
+                                                {user.phone_verified ? <UserX size={16} color="#ef4444" /> : <UserCheck size={16} color="#10b981" />}
+                                            </button>
                                             <button className="admin-btn admin-btn-outline" style={{ padding: '6px' }} title="Edit">
                                                 <Edit size={16} />
                                             </button>
@@ -620,9 +637,94 @@ const TransactionsView = ({ showToast }) => {
     );
 };
 
+// --- ADMIN AUTH COMPONENT ---
+
+const AdminAuthView = ({ onLoginSuccess }) => {
+    const [loading, setLoading] = useState(false);
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [errorMsg, setErrorMsg] = useState('');
+
+    const handleLogin = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        setErrorMsg('');
+
+        try {
+            const { data, error } = await supabase.from('users')
+                .select('*')
+                .eq('email', email)
+                .eq('password', password)
+                .single();
+
+            if (error || !data) throw new Error('Email atau password salah!');
+            if (data.role !== 'Admin') throw new Error('Akses Ditolak: Anda bukan Admin!');
+
+            onLoginSuccess(data);
+        } catch (err) {
+            setErrorMsg(err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <div style={{ background: '#0f172a', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Outfit, sans-serif' }}>
+            <div style={{ background: '#1e293b', padding: '40px', borderRadius: '16px', width: '100%', maxWidth: '400px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.5)' }}>
+                <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+                    <div style={{ width: '64px', height: '64px', background: '#3b82f6', color: '#FFF', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px', fontWeight: 'bold', margin: '0 auto 16px auto' }}>Y</div>
+                    <h1 style={{ color: '#FFF', fontSize: '24px', margin: '0 0 8px 0', letterSpacing: '0.5px' }}>YOUMAN Admin</h1>
+                    <p style={{ color: '#94a3b8', fontSize: '14px', margin: 0 }}>Silakan masuk untuk mengelola sistem</p>
+                </div>
+
+                {errorMsg && (
+                    <div style={{ background: '#7f1d1d', color: '#fca5a5', padding: '12px', borderRadius: '8px', marginBottom: '20px', fontSize: '14px', textAlign: 'center', border: '1px solid #b91c1c' }}>
+                        {errorMsg}
+                    </div>
+                )}
+
+                <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div>
+                        <label style={{ display: 'block', color: '#cbd5e1', fontSize: '12px', marginBottom: '6px', fontWeight: '500' }}>Email Admin</label>
+                        <input type="email" placeholder="admin@youman.com" required value={email} onChange={e => setEmail(e.target.value)} style={{ boxSizing: 'border-box', width: '100%', padding: '12px 16px', borderRadius: '8px', background: '#0f172a', border: '1px solid #334155', color: '#FFF', outline: 'none', fontSize: '14px' }} />
+                    </div>
+                    <div>
+                        <label style={{ display: 'block', color: '#cbd5e1', fontSize: '12px', marginBottom: '6px', fontWeight: '500' }}>Password</label>
+                        <input type="password" placeholder="••••••••" required value={password} onChange={e => setPassword(e.target.value)} style={{ boxSizing: 'border-box', width: '100%', padding: '12px 16px', borderRadius: '8px', background: '#0f172a', border: '1px solid #334155', color: '#FFF', outline: 'none', fontSize: '14px' }} />
+                    </div>
+                    <button className="admin-btn-primary" type="submit" disabled={loading} style={{ width: '100%', padding: '14px', borderRadius: '8px', border: 'none', fontWeight: 'bold', marginTop: '8px', cursor: loading ? 'not-allowed' : 'pointer', fontSize: '15px' }}>
+                        {loading ? 'Memverifikasi...' : 'Masuk ke Dashboard'}
+                    </button>
+                </form>
+            </div>
+        </div>
+    );
+};
+
 // --- MAIN LAYOUT ---
 
 export default function AdminPanel() {
+    const [adminUser, setAdminUser] = useState(() => {
+        const saved = localStorage.getItem('youman_admin_user');
+        return saved ? JSON.parse(saved) : null;
+    });
+
+    const handleLogin = (user) => {
+        localStorage.setItem('youman_admin_user', JSON.stringify(user));
+        setAdminUser(user);
+    };
+
+    const handleLogout = () => {
+        localStorage.removeItem('youman_admin_user');
+        setAdminUser(null);
+    };
+
+    if (!adminUser) return <AdminAuthView onLoginSuccess={handleLogin} />;
+
+    return <AdminDashboard adminUser={adminUser} onLogout={handleLogout} />;
+}
+
+function AdminDashboard({ adminUser, onLogout }) {
     const [view, setView] = useState('dashboard');
     const [toast, setToast] = useState(null);
 
@@ -678,7 +780,7 @@ export default function AdminPanel() {
                 </div>
 
                 <div style={{ padding: '24px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                    <div className="admin-nav-item" style={{ color: '#ef4444' }} onClick={() => showToast('Logout berhasil', 'success')}>
+                    <div className="admin-nav-item" style={{ color: '#ef4444' }} onClick={onLogout}>
                         <LogOut size={20} />
                         Logout System
                     </div>
@@ -700,10 +802,10 @@ export default function AdminPanel() {
                         <div style={{ width: '1px', height: '24px', backgroundColor: 'var(--admin-border)', margin: '0 8px' }}></div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
                             <div style={{ textAlign: 'right' }}>
-                                <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--admin-text-main)' }}>Admin Youman</div>
-                                <div style={{ fontSize: '12px', color: 'var(--admin-text-muted)' }}>Superadmin</div>
+                                <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--admin-text-main)' }}>{adminUser.name}</div>
+                                <div style={{ fontSize: '12px', color: 'var(--admin-text-muted)' }}>{adminUser.role}</div>
                             </div>
-                            <div className="admin-user-avatar">AY</div>
+                            <div className="admin-user-avatar">{adminUser.name.charAt(0).toUpperCase()}</div>
                         </div>
                     </div>
                 </header>
