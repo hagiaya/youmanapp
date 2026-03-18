@@ -220,8 +220,9 @@ const UsersView = ({ showToast }) => {
     const [users, setUsers] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingId, setEditingId] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
-    const [formData, setFormData] = useState({ name: '', email: '', phone: '', role: 'User' });
+    const [formData, setFormData] = useState({ name: '', email: '', phone: '', password: '', role: 'User' });
 
     useEffect(() => {
         fetchUsers();
@@ -249,25 +250,37 @@ const UsersView = ({ showToast }) => {
 
     const handleSave = async () => {
         if (!formData.name || !formData.email || !formData.phone) {
-            showToast('Semua kolom harus diisi!', 'error');
+            showToast('Semua kolom penting harus diisi!', 'error');
             return;
         }
 
         try {
-            const { data, error } = await supabase.from('users').insert([
-                { ...formData, phone_verified: false }
-            ]).select();
-            if (error) throw error;
-            setUsers([data[0], ...users]);
-            showToast('Berhasil menambahkan user baru ke Supabase!', 'success');
+            if (editingId) {
+                const { error } = await supabase.from('users').update({ ...formData }).eq('id', editingId);
+                if (error) throw error;
+                setUsers(users.map(u => u.id === editingId ? { ...u, ...formData } : u));
+                showToast('Data user berhasil diperbarui!', 'success');
+            } else {
+                const { data, error } = await supabase.from('users').insert([
+                    { ...formData, phone_verified: false }
+                ]).select();
+                if (error) throw error;
+                setUsers([data[0], ...users]);
+                showToast('Berhasil menambahkan user baru ke Supabase!', 'success');
+            }
         } catch (error) {
             console.error(error);
-            // Fallback Local 
-            setUsers([{ id: Date.now().toString(), ...formData, phone_verified: false, created_at: new Date().toISOString() }, ...users]);
-            showToast('Berhasil disimpan di Local (Supabase Error)', 'success');
+            showToast('Gagal menyimpan ke Supabase', 'error');
         }
-        setFormData({ name: '', email: '', phone: '', role: 'User' });
+        setFormData({ name: '', email: '', phone: '', password: '', role: 'User' });
+        setEditingId(null);
         setIsModalOpen(false);
+    };
+
+    const handleEdit = (user) => {
+        setFormData({ name: user.name, email: user.email, phone: user.phone, password: user.password || '', role: user.role });
+        setEditingId(user.id);
+        setIsModalOpen(true);
     };
 
     const handleDelete = async (id) => {
@@ -278,8 +291,7 @@ const UsersView = ({ showToast }) => {
                 setUsers(users.filter(u => u.id !== id));
                 showToast('User berhasil dihapus!', 'success');
             } catch (error) {
-                setUsers(users.filter(u => u.id !== id));
-                showToast('User dihapus secara lokal (Supabase Error)', 'success');
+                showToast('Gagal menghapus user', 'error');
             }
         }
     };
@@ -302,7 +314,11 @@ const UsersView = ({ showToast }) => {
         <div className="admin-fade-in">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                 <h1 className="admin-page-title" style={{ margin: 0 }}>Manajemen User</h1>
-                <button className="admin-btn admin-btn-primary" onClick={() => setIsModalOpen(true)}>
+                <button className="admin-btn admin-btn-primary" onClick={() => {
+                    setFormData({ name: '', email: '', phone: '', password: '', role: 'User' });
+                    setEditingId(null);
+                    setIsModalOpen(true);
+                }}>
                     <Plus size={18} /> Tambah User
                 </button>
             </div>
@@ -351,7 +367,7 @@ const UsersView = ({ showToast }) => {
                                             <button className="admin-btn admin-btn-outline" style={{ padding: '6px' }} title={user.phone_verified ? "Batalkan Verifikasi" : "Verifikasi (Approve)"} onClick={() => handleVerify(user)}>
                                                 {user.phone_verified ? <UserX size={16} color="#ef4444" /> : <UserCheck size={16} color="#10b981" />}
                                             </button>
-                                            <button className="admin-btn admin-btn-outline" style={{ padding: '6px' }} title="Edit">
+                                            <button className="admin-btn admin-btn-outline" style={{ padding: '6px' }} title="Edit" onClick={() => handleEdit(user)}>
                                                 <Edit size={16} />
                                             </button>
                                             <button className="admin-btn admin-btn-danger" style={{ padding: '6px' }} title="Hapus" onClick={() => handleDelete(user.id)}>
@@ -389,6 +405,10 @@ const UsersView = ({ showToast }) => {
                                 <input type="email" className="admin-form-control" placeholder="Masukkan email" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
                             </div>
                             <div className="admin-form-group">
+                                <label>Password (Untuk Login)</label>
+                                <input type="text" className="admin-form-control" placeholder="Biarkan kosong jika tidak diubah" value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} />
+                            </div>
+                            <div className="admin-form-group">
                                 <label>No. WhatsApp</label>
                                 <input type="text" className="admin-form-control" placeholder="Contoh: 08123456789" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} />
                             </div>
@@ -413,6 +433,7 @@ const UsersView = ({ showToast }) => {
 
 const ProductsView = ({ products, setProducts, showToast }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingId, setEditingId] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [formData, setFormData] = useState({ name: '', price: '', stock: '', status: 'Active' });
 
@@ -425,21 +446,48 @@ const ProductsView = ({ products, setProducts, showToast }) => {
         }
 
         const newProdData = {
-            name: formData.name, price: Number(formData.price), stock: Number(formData.stock), sales: 0, status: formData.stock == 0 ? 'Out of Stock' : formData.status
+            name: formData.name, price: Number(formData.price), stock: Number(formData.stock), status: formData.stock <= 0 ? 'Out of Stock' : formData.status
         };
 
         try {
-            const { data, error } = await supabase.from('products').insert([newProdData]).select();
-            if (error) throw error;
-            setProducts([data[0], ...products]);
-            showToast('Produk berhasil ditambahkan ke Supabase!', 'success');
+            if (editingId) {
+                const { error } = await supabase.from('products').update(newProdData).eq('id', editingId);
+                if (error) throw error;
+                setProducts(products.map(p => p.id === editingId ? { ...p, ...newProdData } : p));
+                showToast('Produk berhasil diperbarui!', 'success');
+            } else {
+                newProdData.sales = 0;
+                const { data, error } = await supabase.from('products').insert([newProdData]).select();
+                if (error) throw error;
+                setProducts([data[0], ...products]);
+                showToast('Produk berhasil ditambahkan!', 'success');
+            }
         } catch (error) {
-            setProducts([{ id: Date.now().toString(), ...newProdData }, ...products]);
-            showToast('Produk disimpan ke Local (Supabase Error)', 'success');
+            console.error(error);
+            showToast('Gagal menyimpan produk', 'error');
         }
 
         setFormData({ name: '', price: '', stock: '', status: 'Active' });
+        setEditingId(null);
         setIsModalOpen(false);
+    };
+
+    const handleEdit = (prod) => {
+        setFormData({ name: prod.name, price: prod.price, stock: prod.stock, status: prod.status });
+        setEditingId(prod.id);
+        setIsModalOpen(true);
+    };
+
+    const handleVerifyStatus = async (prod) => {
+        const nextStatus = prod.status === 'Active' ? 'Draft' : 'Active';
+        try {
+            const { error } = await supabase.from('products').update({ status: nextStatus }).eq('id', prod.id);
+            if (error) throw error;
+            setProducts(products.map(p => p.id === prod.id ? { ...p, status: nextStatus } : p));
+            showToast(`Status produk diubah menjadi ${nextStatus}`, 'success');
+        } catch (error) {
+            showToast('Gagal merubah status produk', 'error');
+        }
     };
 
     const handleDelete = async (id) => {
@@ -450,8 +498,7 @@ const ProductsView = ({ products, setProducts, showToast }) => {
                 setProducts(products.filter(p => p.id !== id));
                 showToast('Produk berhasil dihapus!', 'success');
             } catch (error) {
-                setProducts(products.filter(p => p.id !== id));
-                showToast('Terhapus di Lokal (Supabase Error)', 'success');
+                showToast('Gagal menghapus produk', 'error');
             }
         }
     };
@@ -460,7 +507,11 @@ const ProductsView = ({ products, setProducts, showToast }) => {
         <div className="admin-fade-in">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                 <h1 className="admin-page-title" style={{ margin: 0 }}>Manajemen Produk</h1>
-                <button className="admin-btn admin-btn-primary" onClick={() => setIsModalOpen(true)}>
+                <button className="admin-btn admin-btn-primary" onClick={() => {
+                    setFormData({ name: '', price: '', stock: '', status: 'Active' });
+                    setEditingId(null);
+                    setIsModalOpen(true);
+                }}>
                     <Plus size={18} /> Tambah Produk
                 </button>
             </div>
@@ -503,7 +554,10 @@ const ProductsView = ({ products, setProducts, showToast }) => {
                                     </td>
                                     <td>
                                         <div style={{ display: 'flex', gap: '8px' }}>
-                                            <button className="admin-btn admin-btn-outline" style={{ padding: '6px' }} title="Edit">
+                                            <button className="admin-btn admin-btn-outline" style={{ padding: '6px' }} title="Toggle Verifikasi (Aktif/Draft)" onClick={() => handleVerifyStatus(prod)}>
+                                                {prod.status === 'Active' ? <CheckCircle size={16} color="#10b981" /> : <Clock size={16} color="#f59e0b" />}
+                                            </button>
+                                            <button className="admin-btn admin-btn-outline" style={{ padding: '6px' }} title="Edit" onClick={() => handleEdit(prod)}>
                                                 <Edit size={16} />
                                             </button>
                                             <button className="admin-btn admin-btn-danger" style={{ padding: '6px' }} title="Hapus" onClick={() => handleDelete(prod.id)}>
@@ -567,6 +621,10 @@ const ProductsView = ({ products, setProducts, showToast }) => {
 const TransactionsView = ({ showToast }) => {
     const [transactions, setTransactions] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingId, setEditingId] = useState(null);
+    const [formData, setFormData] = useState({ user_name: '', amount: '', status: 'Pending', delivery_status: 'Processing', method: 'Manual' });
 
     useEffect(() => {
         fetchTransactions();
@@ -585,11 +643,80 @@ const TransactionsView = ({ showToast }) => {
         }
     };
 
+    const filteredTransactions = transactions.filter(t =>
+        t.user_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        t.id?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    const handleSave = async () => {
+        if (!formData.user_name || !formData.amount) {
+            showToast('Nama pelanggan dan jumlah nilai wajib diisi!', 'error');
+            return;
+        }
+
+        const newTrxData = {
+            user_name: formData.user_name,
+            amount: Number(formData.amount),
+            status: formData.status,
+            delivery_status: formData.delivery_status,
+            method: formData.method
+        };
+
+        try {
+            if (editingId) {
+                const { error } = await supabase.from('transactions').update(newTrxData).eq('id', editingId);
+                if (error) throw error;
+                setTransactions(transactions.map(t => t.id === editingId ? { ...t, ...newTrxData } : t));
+                showToast('Transaksi berhasil diperbarui!', 'success');
+            } else {
+                const idGen = 'TRX-' + Math.floor(Math.random() * 100000);
+                const { data, error } = await supabase.from('transactions').insert([{ id: idGen, ...newTrxData }]).select();
+                if (error) throw error;
+                setTransactions([data[0], ...transactions]);
+                showToast('Transaksi manual berhasil ditambahkan!', 'success');
+            }
+        } catch (error) {
+            showToast('Gagal menyimpan transaksi', 'error');
+        }
+
+        setFormData({ user_name: '', amount: '', status: 'Pending', delivery_status: 'Processing', method: 'Manual' });
+        setEditingId(null);
+        setIsModalOpen(false);
+    };
+
+    const handleEdit = (trx) => {
+        setFormData({ user_name: trx.user_name, amount: trx.amount, status: trx.status, delivery_status: trx.delivery_status, method: trx.method || 'Manual' });
+        setEditingId(trx.id);
+        setIsModalOpen(true);
+    };
+
+    const handleDelete = async (id) => {
+        if (window.confirm("Yakin ingin menghapus transaksi ini?")) {
+            try {
+                const { error } = await supabase.from('transactions').delete().eq('id', id);
+                if (error) throw error;
+                setTransactions(transactions.filter(t => t.id !== id));
+                showToast('Transaksi berhasil dihapus!', 'success');
+            } catch (error) {
+                showToast('Gagal menghapus transaksi', 'error');
+            }
+        }
+    };
+
     return (
         <div className="admin-fade-in">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                 <h1 className="admin-page-title" style={{ margin: 0 }}>Manajemen Transaksi</h1>
-                <button className="admin-btn admin-btn-primary" onClick={() => showToast('Mengekspor laporan...', 'success')}>Export Data (CSV)</button>
+                <div style={{ display: 'flex', gap: '12px' }}>
+                    <button className="admin-btn admin-btn-outline" onClick={() => showToast('Mengekspor laporan...', 'success')}>Export CSV</button>
+                    <button className="admin-btn admin-btn-primary" onClick={() => {
+                        setFormData({ user_name: '', amount: '', status: 'Pending', delivery_status: 'Processing', method: 'Manual' });
+                        setEditingId(null);
+                        setIsModalOpen(true);
+                    }}>
+                        <Plus size={18} /> Tambah Manual
+                    </button>
+                </div>
             </div>
 
             {/* Midtrans Summary */}
@@ -615,6 +742,17 @@ const TransactionsView = ({ showToast }) => {
             </div>
 
             <div className="admin-table-container">
+                <div className="admin-table-header-row" style={{ padding: '16px 24px' }}>
+                    <div className="admin-search" style={{ width: '250px', backgroundColor: '#f8fafc', border: '1px solid var(--admin-border)' }}>
+                        <Search size={16} />
+                        <input
+                            type="text"
+                            placeholder="Cari transaksi (ID, Nama)..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                    </div>
+                </div>
                 <div style={{ overflowX: 'auto' }}>
                     <table className="admin-table">
                         <thead>
@@ -632,7 +770,7 @@ const TransactionsView = ({ showToast }) => {
                         <tbody>
                             {isLoading ? (
                                 <tr><td colSpan="8" style={{ textAlign: 'center', padding: '32px' }}><Loader className="animate-spin" /> </td></tr>
-                            ) : transactions.map((trx, idx) => (
+                            ) : filteredTransactions.length > 0 ? filteredTransactions.map((trx, idx) => (
                                 <tr key={trx.id || idx}>
                                     <td style={{ fontWeight: 500, fontSize: '12px' }}>{trx.id}</td>
                                     <td>{trx.user_name}</td>
@@ -651,31 +789,72 @@ const TransactionsView = ({ showToast }) => {
                                         </span>
                                     </td>
                                     <td>
-                                            <button className="admin-btn admin-btn-outline" style={{ padding: '6px 12px', fontSize: '12px', cursor: 'pointer' }} onClick={async () => {
-                                            const statuses = ['Processing', 'Shipped', 'Delivered'];
-                                            const currentIndex = statuses.indexOf(trx.delivery_status);
-                                            const nextStatus = statuses[(currentIndex + 1) % statuses.length];
-                                            try {
-                                                const { error } = await supabase.from('transactions').update({ delivery_status: nextStatus }).eq('id', trx.id);
-                                                if (error) throw error;
-                                                setTransactions(transactions.map(t => t.id === trx.id ? { ...t, delivery_status: nextStatus } : t));
-                                                showToast(`Status pengiriman diubah ke ${nextStatus}`, 'success');
-                                            } catch (err) {
-                                                console.error(err);
-                                                // Fallback for mock array
-                                                setTransactions(transactions.map(t => t.id === trx.id ? { ...t, delivery_status: nextStatus } : t));
-                                                showToast(`Local Update: Status diubah ke ${nextStatus}`, 'success');
-                                            }
-                                        }}>
-                                            Update Status ({trx.delivery_status})
-                                        </button>
+                                        <div style={{ display: 'flex', gap: '8px' }}>
+                                            <button className="admin-btn admin-btn-outline" style={{ padding: '6px' }} title="Edit Transaksi" onClick={() => handleEdit(trx)}>
+                                                <Edit size={16} />
+                                            </button>
+                                            <button className="admin-btn admin-btn-danger" style={{ padding: '6px' }} title="Hapus Transaksi" onClick={() => handleDelete(trx.id)}>
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
-                            ))}
+                            )) : (
+                                <tr>
+                                    <td colSpan="8" style={{ textAlign: 'center', padding: '32px' }}>Tidak ada transaksi ditemukan.</td>
+                                </tr>
+                            )}
                         </tbody>
                     </table>
                 </div>
             </div>
+
+            {isModalOpen && (
+                <div className="admin-modal-overlay">
+                    <div className="admin-modal">
+                        <div className="admin-modal-header">
+                            <h2 className="admin-modal-title">{editingId ? 'Edit Transaksi' : 'Tambah Transaksi'}</h2>
+                            <button className="admin-btn-outline" style={{ padding: '4px', border: 'none', borderRadius: '50%' }} onClick={() => setIsModalOpen(false)}>
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <div className="admin-modal-body">
+                            <div className="admin-form-group">
+                                <label>Nama Pelanggan</label>
+                                <input type="text" className="admin-form-control" placeholder="Nama Pelanggan" value={formData.user_name} onChange={e => setFormData({ ...formData, user_name: e.target.value })} />
+                            </div>
+                            <div className="admin-form-group">
+                                <label>Total Nilai (Rp)</label>
+                                <input type="number" className="admin-form-control" placeholder="Contoh: 250000" value={formData.amount} onChange={e => setFormData({ ...formData, amount: e.target.value })} />
+                            </div>
+                            <div className="admin-form-group">
+                                <label>Status Pembayaran</label>
+                                <select className="admin-form-control" value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value })}>
+                                    <option value="Pending">Pending</option>
+                                    <option value="Success">Success</option>
+                                    <option value="Failed">Failed</option>
+                                </select>
+                            </div>
+                            <div className="admin-form-group">
+                                <label>Progress Pengiriman</label>
+                                <select className="admin-form-control" value={formData.delivery_status} onChange={e => setFormData({ ...formData, delivery_status: e.target.value })}>
+                                    <option value="Processing">Processing</option>
+                                    <option value="Shipped">Shipped</option>
+                                    <option value="Delivered">Delivered</option>
+                                </select>
+                            </div>
+                            <div className="admin-form-group">
+                                <label>Metode Pembayaran</label>
+                                <input type="text" className="admin-form-control" placeholder="Manual, Transfer BCA, dll" value={formData.method} onChange={e => setFormData({ ...formData, method: e.target.value })} />
+                            </div>
+                        </div>
+                        <div className="admin-modal-footer">
+                            <button className="admin-btn admin-btn-outline" onClick={() => setIsModalOpen(false)}>Batal</button>
+                            <button className="admin-btn admin-btn-primary" onClick={handleSave}>Simpan Data</button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
