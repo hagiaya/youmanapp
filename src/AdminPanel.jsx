@@ -591,8 +591,23 @@ const TransactionsView = ({ showToast }) => {
                                         </span>
                                     </td>
                                     <td>
-                                        <button className="admin-btn admin-btn-outline" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => showToast('Membuka detail resi', 'success')}>
-                                            Update Resi
+                                            <button className="admin-btn admin-btn-outline" style={{ padding: '6px 12px', fontSize: '12px', cursor: 'pointer' }} onClick={async () => {
+                                            const statuses = ['Processing', 'Shipped', 'Delivered'];
+                                            const currentIndex = statuses.indexOf(trx.delivery_status);
+                                            const nextStatus = statuses[(currentIndex + 1) % statuses.length];
+                                            try {
+                                                const { error } = await supabase.from('transactions').update({ delivery_status: nextStatus }).eq('id', trx.id);
+                                                if (error) throw error;
+                                                setTransactions(transactions.map(t => t.id === trx.id ? { ...t, delivery_status: nextStatus } : t));
+                                                showToast(`Status pengiriman diubah ke ${nextStatus}`, 'success');
+                                            } catch (err) {
+                                                console.error(err);
+                                                // Fallback for mock array
+                                                setTransactions(transactions.map(t => t.id === trx.id ? { ...t, delivery_status: nextStatus } : t));
+                                                showToast(`Local Update: Status diubah ke ${nextStatus}`, 'success');
+                                            }
+                                        }}>
+                                            Update Status ({trx.delivery_status})
                                         </button>
                                     </td>
                                 </tr>

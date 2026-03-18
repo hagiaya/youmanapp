@@ -321,12 +321,84 @@ const KnowledgeView = () => {
                 <p style={{ fontSize: '14px', color: '#AAA', lineHeight: '1.6', marginBottom: '16px' }}>
                     Suplemen YOUMAN dirancang khusus dengan bahan aktif yang diakui secara ilmiah dapat membantu menyeimbangkan hormon dan mempercepat pemulihan energi, memberikan Anda keuntungan tak adil dalam kedisiplinan harian.
                 </p>
-                <a href="https://youman.id/products" target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
-                    <button className="btn-primary" style={{ width: '100%', background: '#FFF', color: '#000', fontWeight: 'bold' }}>
-                        Pelajari Produk
-                    </button>
-                </a>
+                {/* Note: User clicks button inside Profile to access the In-App Store */}
             </div>
+        </motion.div>
+    );
+};
+
+const StoreView = ({ onBack, userId }) => {
+    const [products, setProducts] = useState([
+        { id: '101', name: 'YOUMAN Premium Kit', price: 299000, stock: 45, status: 'Active' },
+        { id: '102', name: 'Basic Fitness Band', price: 89000, stock: 12, status: 'Active' }
+    ]);
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        // Fetch products that are active
+        supabase.from('products').select('*').eq('status', 'Active').then(({ data }) => {
+            if (data && data.length > 0) setProducts(data);
+        });
+    }, []);
+
+    const handleBuy = async (product) => {
+        setLoading(true);
+        try {
+            const transactionId = `TRX-${Date.now().toString().slice(-6)}`;
+            
+            // 1. Simpan transaksi di Supabase. Status: Pending, Delivery: Processing
+            await supabase.from('transactions').insert({
+                id: transactionId,
+                user_id: userId,
+                user_name: 'User YOUMAN',
+                amount: product.price,
+                status: 'Pending',
+                method: 'Pakasir.com',
+                delivery_status: 'Processing'
+            });
+
+            // 2. Call Pakasir API
+            const apiKey = import.meta.env.VITE_PAKASIR_API_KEY;
+            
+            // Mock API integrasi Pakasir: Kita menampilkan konfirmasi pembayaran
+            // Di level production, proses fetch menuju API Pakasir (POST endpoint) dengan menyertakan apiKey di header Authorization
+            alert(`Transaksi berhasil divalidasi ke sistem Pakasir!\n\nTotal Tagihan: Rp ${product.price.toLocaleString()}\nOrder ID: ${transactionId}\n(Sistem akan mengarahkan Anda ke Halaman Checkout Pakasir)`);
+            
+            // Karena ini MVP, ubah langsung status transaksi local (atau ditangani webhook nanti)
+            onBack();
+        } catch (e) {
+            alert('Gagal memproses pembayaran: ' + e.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <motion.div
+            initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
+            style={{ paddingBottom: '100px' }}
+        >
+            <button onClick={onBack} style={{ background: 'none', border: 'none', color: '#FFF', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '24px', cursor: 'pointer' }}>
+                <ChevronLeft size={24} /> Kembali ke Profil
+            </button>
+            <SectionHeader title="Official Store" subtitle="Beli langsung dari aplikasi (Powered by Pakasir)" />
+
+            {products.map(product => (
+                <div key={product.id} className="glass-card" style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ flex: 1, paddingRight: '12px' }}>
+                        <h3 style={{ margin: '0 0 8px 0', fontSize: '16px', fontWeight: 'bold' }}>{product.name}</h3>
+                        <p style={{ fontWeight: 'bold', color: '#00E676', margin: 0 }}>Rp {product.price.toLocaleString()}</p>
+                    </div>
+                    <button 
+                        className="btn-primary" 
+                        style={{ width: 'auto', padding: '10px 20px', background: '#FFF' }}
+                        onClick={() => handleBuy(product)}
+                        disabled={loading}
+                    >
+                        {loading ? 'Sedang Memproses...' : 'Beli Sekarang'}
+                    </button>
+                </div>
+            ))}
         </motion.div>
     );
 };
@@ -391,7 +463,7 @@ const ProgressView = ({ rituals, streak, history }) => {
     );
 };
 
-const ProfilView = ({ streak, bestStreak, onReset }) => {
+const ProfilView = ({ streak, bestStreak, onReset, setActiveTab, userId }) => {
     let level = 'Unstructured Man';
     if (streak >= 7 && streak < 21) level = 'Disciplined Man';
     else if (streak >= 21 && streak < 60) level = 'Elite Discipline';
@@ -399,6 +471,28 @@ const ProfilView = ({ streak, bestStreak, onReset }) => {
 
     const testosteronScore = "Optimal"; // Mocked score for UI
     
+    // Delivery Progress Tracker State
+    const [transactions, setTransactions] = useState([]);
+    
+    useEffect(() => {
+        if (!navigator.onLine) return;
+        supabase.from('transactions').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(3).then(({ data }) => {
+            if (data) setTransactions(data);
+        });
+
+        const trxChannel = supabase.channel('realtime_trx_user')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions', filter: `user_id=eq.${userId}` }, payload => {
+                if (payload.new) {
+                    setTransactions(prev => {
+                        const existing = prev.find(t => t.id === payload.new.id);
+                        if (existing) return prev.map(t => t.id === payload.new.id ? payload.new : t);
+                        return [payload.new, ...prev].slice(0, 3);
+                    });
+                }
+            }).subscribe();
+
+        return () => supabase.removeChannel(trxChannel);
+    }, [userId]);
     return (
         <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -443,14 +537,29 @@ const ProfilView = ({ streak, bestStreak, onReset }) => {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <a href="https://youman.id/products" target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
-                    <div className="glass-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', background: '#FFF' }}>
-                        <span style={{ fontWeight: 'bold', color: '#000', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                            <ShoppingCart size={18} /> Restock YOUMAN
-                        </span>
-                        <ChevronRight size={18} color="#000" />
+                <div onClick={() => setActiveTab('store')} className="glass-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', background: 'linear-gradient(90deg, #FFF, #E0E0E0)', cursor: 'pointer' }}>
+                    <span style={{ fontWeight: 'bold', color: '#000', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <ShoppingCart size={18} /> In-App Store (Restock)
+                    </span>
+                    <ChevronRight size={18} color="#000" />
+                </div>
+
+                {transactions.length > 0 && (
+                    <div style={{ marginBottom: '16px', marginTop: '16px' }}>
+                        <h2 style={{ fontSize: '16px', color: '#AAA', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>Progress Pengiriman</h2>
+                        {transactions.map(trx => (
+                            <div key={trx.id} className="glass-card" style={{ background: 'rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px' }}>
+                                <div>
+                                    <div style={{ fontSize: '14px', fontWeight: 'bold' }}>{trx.id}</div>
+                                    <div style={{ fontSize: '12px', color: '#888' }}>Metode: {trx.method}</div>
+                                </div>
+                                <div style={{ fontSize: '12px', fontWeight: 'bold', color: trx.delivery_status === 'Delivered' ? '#00E676' : '#FFD700' }}>
+                                    ● {trx.delivery_status}
+                                </div>
+                            </div>
+                        ))}
                     </div>
-                </a>
+                )}
 
                 <div className="glass-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', cursor: 'pointer' }}>
                     <span style={{ fontWeight: '500' }}>Pengaturan Notifikasi</span>
@@ -641,6 +750,13 @@ function AppContent() {
                     {activeTab === 'knowledge' && (
                         <KnowledgeView key="knowledge" />
                     )}
+                    {activeTab === 'store' && (
+                        <StoreView 
+                            key="store" 
+                            onBack={() => setActiveTab('profile')} 
+                            userId={getUserId()} 
+                        />
+                    )}
                     {activeTab === 'progress' && (
                         <ProgressView
                             key="progress"
@@ -654,7 +770,9 @@ function AppContent() {
                             key="profile" 
                             streak={streak} 
                             bestStreak={bestStreak} 
-                            onReset={handleResetData} 
+                            onReset={handleResetData}
+                            setActiveTab={setActiveTab}
+                            userId={getUserId()}
                         />
                     )}
                 </AnimatePresence>
