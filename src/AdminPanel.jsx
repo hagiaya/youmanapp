@@ -9,34 +9,7 @@ import {
 } from 'recharts';
 import { supabase } from './utils/supabase';
 
-// --- INITIAL MOCK DATA ---
-const REVENUE_DATA = [
-    { name: 'Sen', total: 1200000 },
-    { name: 'Sel', total: 1800000 },
-    { name: 'Rab', total: 1400000 },
-    { name: 'Kam', total: 2200000 },
-    { name: 'Jum', total: 2800000 },
-    { name: 'Sab', total: 3500000 },
-    { name: 'Min', total: 3100000 }
-];
-
-const INITIAL_USERS = [
-    { id: '1', name: 'Budi Santoso', email: 'budi@example.com', phone: '08123456789', phone_verified: true, role: 'User', created_at: '2026-03-10' },
-    { id: '2', name: 'Siti Aminah', email: 'siti@example.com', phone: '08198765432', phone_verified: false, role: 'User', created_at: '2026-03-11' },
-    { id: '3', name: 'Reza Latandrang', email: 'reza@youman.com', phone: '08122334455', phone_verified: true, role: 'Admin', created_at: '2026-03-01' },
-];
-
-const INITIAL_PRODUCTS = [
-    { id: '101', name: 'YOUMAN Premium Kit', price: 299000, stock: 45, status: 'Active', sales: 128 },
-    { id: '102', name: 'Basic Fitness Band', price: 89000, stock: 12, status: 'Active', sales: 340 },
-    { id: '103', name: 'Protein Shake 1kg', price: 350000, stock: 0, status: 'Out of Stock', sales: 89 },
-];
-
-const INITIAL_TRANSACTIONS = [
-    { id: 'TRX-10029', user_name: 'Budi Santoso', amount: 299000, status: 'Success', method: 'Midtrans (GoPay)', delivery_status: 'Delivered', created_at: '2026-03-14 10:23' },
-    { id: 'TRX-10030', user_name: 'Siti Aminah', amount: 89000, status: 'Pending', method: 'Midtrans (BCA VA)', delivery_status: 'Processing', created_at: '2026-03-14 11:45' },
-    { id: 'TRX-10031', user_name: 'Andi Kusuma', amount: 439000, status: 'Success', method: 'Midtrans (Credit Card)', delivery_status: 'Shipped', created_at: '2026-03-14 14:10' },
-];
+// REMOVED INITIAL MOCK DATA - ONLY USING REAL SUPABASE DATA
 
 // --- TOAST COMPONENT ---
 const Toast = ({ message, type, onClose }) => (
@@ -60,6 +33,10 @@ const DashboardView = ({ products }) => {
     const [activeUsers, setActiveUsers] = useState(0);
     const [newOrders, setNewOrders] = useState(0);
     const [recentOrders, setRecentOrders] = useState([]);
+    const [chartData, setChartData] = useState([
+        { name: 'Sen', total: 0 }, { name: 'Sel', total: 0 }, { name: 'Rab', total: 0 },
+        { name: 'Kam', total: 0 }, { name: 'Jum', total: 0 }, { name: 'Sab', total: 0 }, { name: 'Min', total: 0 }
+    ]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -76,6 +53,20 @@ const DashboardView = ({ products }) => {
                     setRevenue(total);
                     setNewOrders(trx.length);
                     setRecentOrders(trx.slice(0, 5));
+
+                    // Generate Dynamic Weekly Chart (Sen-Min)
+                    let newChart = [
+                        { name: 'Sen', total: 0 }, { name: 'Sel', total: 0 }, { name: 'Rab', total: 0 },
+                        { name: 'Kam', total: 0 }, { name: 'Jum', total: 0 }, { name: 'Sab', total: 0 }, { name: 'Min', total: 0 }
+                    ];
+                    trx.forEach(t => {
+                        if (t.status === 'Success') {
+                            const dayIndex = new Date(t.created_at).getDay(); // 0 is Sun
+                            const mapIdx = dayIndex === 0 ? 6 : dayIndex - 1; // 0 for Sen, 6 for Min
+                            newChart[mapIdx].total += t.amount;
+                        }
+                    });
+                    setChartData(newChart);
                 }
             } catch (err) {
                 console.error(err);
@@ -135,7 +126,7 @@ const DashboardView = ({ products }) => {
                     <h3 className="admin-card-title" style={{ marginBottom: '24px' }}>Grafik Pendapatan Mingguan</h3>
                     <div style={{ width: '100%', height: '300px' }}>
                         <ResponsiveContainer>
-                            <AreaChart data={REVENUE_DATA} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                            <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                                 <defs>
                                     <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
                                         <stop offset="5%" stopColor="var(--admin-primary)" stopOpacity={0.3} />
@@ -144,7 +135,7 @@ const DashboardView = ({ products }) => {
                                 </defs>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} dy={10} />
-                                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} dx={-10} tickFormatter={(value) => `Rp ${value / 1000}k`} />
+                                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} dx={-10} tickFormatter={(value) => `Rp ${value >= 1000 ? value / 1000 + 'k' : value}`} />
                                 <Tooltip
                                     contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                                     formatter={(value) => [`Rp ${value.toLocaleString()}`, 'Pendapatan']}
@@ -159,7 +150,10 @@ const DashboardView = ({ products }) => {
                 <div className="admin-card">
                     <h3 className="admin-card-title" style={{ marginBottom: '24px' }}>Produk Terlaris</h3>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                        {[...products].sort((a, b) => b.sales - a.sales).slice(0, 5).map((prod, idx) => (
+                        {products.length === 0 ? (
+                        <div style={{ color: '#888', fontSize: '14px', textAlign: 'center', padding: '16px' }}>Belum ada produk dirilis.</div>
+                    ) : (
+                        [...products].sort((a, b) => b.sales - a.sales).slice(0, 5).map((prod, idx) => (
                             <div key={prod.id} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                 <div style={{ width: '40px', height: '40px', borderRadius: '8px', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 'bold', color: 'var(--admin-primary)' }}>
                                     #{idx + 1}
@@ -172,7 +166,8 @@ const DashboardView = ({ products }) => {
                                     Rp {prod.price.toLocaleString()}
                                 </div>
                             </div>
-                        ))}
+                        ))
+                    )}
                     </div>
                 </div>
             </div>
@@ -236,11 +231,11 @@ const UsersView = ({ showToast }) => {
         try {
             const { data, error } = await supabase.from('users').select('*').order('created_at', { ascending: false });
             if (error) throw error;
-            setUsers(data && data.length > 0 ? data : INITIAL_USERS);
+            setUsers(data && data.length > 0 ? data : []);
         } catch (error) {
             console.error('Error fetching users:', error);
-            setUsers(INITIAL_USERS); // fallback to mock data if no table yet
-            showToast('Menggunakan data User simulasi (Supabase Belum Terhubung)', 'error');
+            setUsers([]);
+            showToast('Gagal memuat pengguna dari Supabase', 'error');
         } finally {
             setIsLoading(false);
         }
@@ -777,7 +772,15 @@ function AdminDashboard({ adminUser, onLogout }) {
     const [toast, setToast] = useState(null);
 
     // Lifted state for Dashboard access
-    const [products, setProducts] = useState(INITIAL_PRODUCTS);
+    const [products, setProducts] = useState([]);
+
+    useEffect(() => {
+        const fetchInitial = async () => {
+            const { data } = await supabase.from('products').select('*');
+            if (data) setProducts(data);
+        };
+        fetchInitial();
+    }, []);
 
     const showToast = (message, type = 'success') => {
         setToast({ message, type });
