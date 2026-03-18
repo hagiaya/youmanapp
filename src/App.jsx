@@ -636,7 +636,7 @@ const AuthView = ({ onLoginSuccess }) => {
                     .select('*')
                     .eq('email', formData.email)
                     .eq('password', formData.password)
-                    .single();
+                    .maybeSingle();
 
                 if (error || !data) throw new Error('Email atau password salah!');
                 

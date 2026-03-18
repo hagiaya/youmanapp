@@ -55,129 +55,171 @@ const Toast = ({ message, type, onClose }) => (
 
 // --- VIEWS ---
 
-const DashboardView = ({ products }) => (
-    <div className="admin-fade-in">
-        <h1 className="admin-page-title">Dashboard Overview</h1>
+const DashboardView = ({ products }) => {
+    const [revenue, setRevenue] = useState(0);
+    const [activeUsers, setActiveUsers] = useState(0);
+    const [newOrders, setNewOrders] = useState(0);
+    const [recentOrders, setRecentOrders] = useState([]);
+    const [loading, setLoading] = useState(true);
 
-        <div className="admin-grid">
-            <div className="admin-card">
-                <div className="admin-card-header">
-                    <span className="admin-card-title">Pendapatan (Hari Ini)</span>
-                    <CreditCard size={20} color="var(--admin-primary)" />
-                </div>
-                <div className="admin-card-value">Rp 3.100.000</div>
-                <div className="admin-card-trend trend-up">
-                    <ArrowUpRight size={16} /> +12.5% vs kemarin
-                </div>
-            </div>
-            <div className="admin-card">
-                <div className="admin-card-header">
-                    <span className="admin-card-title">Pengguna Aktif</span>
-                    <Users size={20} color="var(--admin-primary)" />
-                </div>
-                <div className="admin-card-value">1,204</div>
-                <div className="admin-card-trend trend-up">
-                    <ArrowUpRight size={16} /> +4.2% minggu ini
-                </div>
-            </div>
-            <div className="admin-card">
-                <div className="admin-card-header">
-                    <span className="admin-card-title">Pesanan Baru</span>
-                    <Package size={20} color="var(--admin-primary)" />
-                </div>
-                <div className="admin-card-value">48</div>
-                <div className="admin-card-trend trend-down">
-                    <ArrowDownRight size={16} /> -2.1% dari minggu lalu
-                </div>
-            </div>
-        </div>
+    useEffect(() => {
+        const fetchDashboardData = async () => {
+            try {
+                // Count Users
+                const { count: userCount, error: userError } = await supabase.from('users').select('*', { count: 'exact', head: true });
+                if (!userError && userCount !== null) setActiveUsers(userCount);
 
-        <div className="admin-dashboard-split">
-            {/* Chart */}
-            <div className="admin-card" style={{ padding: '24px 24px 0 24px' }}>
-                <h3 className="admin-card-title" style={{ marginBottom: '24px' }}>Grafik Pendapatan Mingguan</h3>
-                <div style={{ width: '100%', height: '300px' }}>
-                    <ResponsiveContainer>
-                        <AreaChart data={REVENUE_DATA} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                            <defs>
-                                <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="var(--admin-primary)" stopOpacity={0.3} />
-                                    <stop offset="95%" stopColor="var(--admin-primary)" stopOpacity={0} />
-                                </linearGradient>
-                            </defs>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} dy={10} />
-                            <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} dx={-10} tickFormatter={(value) => `Rp ${value / 1000}k`} />
-                            <Tooltip
-                                contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                                formatter={(value) => [`Rp ${value.toLocaleString()}`, 'Pendapatan']}
-                            />
-                            <Area type="monotone" dataKey="total" stroke="var(--admin-primary)" strokeWidth={3} fillOpacity={1} fill="url(#colorTotal)" />
-                        </AreaChart>
-                    </ResponsiveContainer>
+                // Fetch transactions for revenue and recent array
+                const { data: trx, error: trxError } = await supabase.from('transactions').select('*').order('created_at', { ascending: false });
+                if (!trxError && trx) {
+                    const total = trx.filter(t => t.status === 'Success').reduce((acc, curr) => acc + curr.amount, 0);
+                    setRevenue(total);
+                    setNewOrders(trx.length);
+                    setRecentOrders(trx.slice(0, 5));
+                }
+            } catch (err) {
+                console.error(err);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchDashboardData();
+    }, []);
+
+    return (
+        <div className="admin-fade-in">
+            <h1 className="admin-page-title">Dashboard Overview</h1>
+
+            <div className="admin-grid">
+                <div className="admin-card">
+                    <div className="admin-card-header">
+                        <span className="admin-card-title">Pendapatan (Total)</span>
+                        <CreditCard size={20} color="var(--admin-primary)" />
+                    </div>
+                    <div className="admin-card-value">
+                        {loading ? <Loader className="animate-spin" size={20} /> : `Rp ${revenue.toLocaleString()}`}
+                    </div>
+                    <div className="admin-card-trend trend-up">
+                        <ArrowUpRight size={16} /> Berdasarkan transaksi sukses
+                    </div>
+                </div>
+                <div className="admin-card">
+                    <div className="admin-card-header">
+                        <span className="admin-card-title">Total Pengguna</span>
+                        <Users size={20} color="var(--admin-primary)" />
+                    </div>
+                    <div className="admin-card-value">
+                        {loading ? <Loader className="animate-spin" size={20} /> : activeUsers}
+                    </div>
+                    <div className="admin-card-trend trend-up">
+                        <ArrowUpRight size={16} /> Data riil Supabase
+                    </div>
+                </div>
+                <div className="admin-card">
+                    <div className="admin-card-header">
+                        <span className="admin-card-title">Total Pemesanan</span>
+                        <Package size={20} color="var(--admin-primary)" />
+                    </div>
+                    <div className="admin-card-value">
+                        {loading ? <Loader className="animate-spin" size={20} /> : newOrders}
+                    </div>
+                    <div className="admin-card-trend trend-up">
+                        <ArrowUpRight size={16} /> Seluruh transaksi masuk
+                    </div>
                 </div>
             </div>
 
-            {/* Best Sellers */}
-            <div className="admin-card">
-                <h3 className="admin-card-title" style={{ marginBottom: '24px' }}>Produk Terlaris</h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    {[...products].sort((a, b) => b.sales - a.sales).slice(0, 5).map((prod, idx) => (
-                        <div key={prod.id} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                            <div style={{ width: '40px', height: '40px', borderRadius: '8px', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 'bold', color: 'var(--admin-primary)' }}>
-                                #{idx + 1}
+            <div className="admin-dashboard-split">
+                {/* Chart */}
+                <div className="admin-card" style={{ padding: '24px 24px 0 24px' }}>
+                    <h3 className="admin-card-title" style={{ marginBottom: '24px' }}>Grafik Pendapatan Mingguan</h3>
+                    <div style={{ width: '100%', height: '300px' }}>
+                        <ResponsiveContainer>
+                            <AreaChart data={REVENUE_DATA} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                                <defs>
+                                    <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="var(--admin-primary)" stopOpacity={0.3} />
+                                        <stop offset="95%" stopColor="var(--admin-primary)" stopOpacity={0} />
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} dy={10} />
+                                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} dx={-10} tickFormatter={(value) => `Rp ${value / 1000}k`} />
+                                <Tooltip
+                                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                                    formatter={(value) => [`Rp ${value.toLocaleString()}`, 'Pendapatan']}
+                                />
+                                <Area type="monotone" dataKey="total" stroke="var(--admin-primary)" strokeWidth={3} fillOpacity={1} fill="url(#colorTotal)" />
+                            </AreaChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+
+                {/* Best Sellers */}
+                <div className="admin-card">
+                    <h3 className="admin-card-title" style={{ marginBottom: '24px' }}>Produk Terlaris</h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        {[...products].sort((a, b) => b.sales - a.sales).slice(0, 5).map((prod, idx) => (
+                            <div key={prod.id} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <div style={{ width: '40px', height: '40px', borderRadius: '8px', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 'bold', color: 'var(--admin-primary)' }}>
+                                    #{idx + 1}
+                                </div>
+                                <div style={{ flex: 1, overflow: 'hidden' }}>
+                                    <div style={{ fontWeight: 600, fontSize: '14px', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{prod.name}</div>
+                                    <div style={{ fontSize: '12px', color: 'var(--admin-text-muted)' }}>Terjual: {prod.sales}</div>
+                                </div>
+                                <div style={{ fontWeight: 600, fontSize: '14px' }}>
+                                    Rp {prod.price.toLocaleString()}
+                                </div>
                             </div>
-                            <div style={{ flex: 1, overflow: 'hidden' }}>
-                                <div style={{ fontWeight: 600, fontSize: '14px', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{prod.name}</div>
-                                <div style={{ fontSize: '12px', color: 'var(--admin-text-muted)' }}>Terjual: {prod.sales}</div>
-                            </div>
-                            <div style={{ fontWeight: 600, fontSize: '14px' }}>
-                                Rp {prod.price.toLocaleString()}
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
-        </div>
-
-        {/* Latest Transactions Table */}
-        <div className="admin-table-container">
-            <div className="admin-table-header-row">
-                <h3 className="admin-card-title" style={{ margin: 0 }}>Transaksi Terbaru</h3>
-            </div>
-            <div style={{ overflowX: 'auto' }}>
-                <table className="admin-table">
-                    <thead>
-                        <tr>
-                            <th>Order ID</th>
-                            <th>Pelanggan</th>
-                            <th>Tanggal</th>
-                            <th>Jumlah</th>
-                            <th>Metode (Midtrans)</th>
-                            <th>Status Pembayaran</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {INITIAL_TRANSACTIONS.map((trx, idx) => (
-                            <tr key={trx.id || idx}>
-                                <td style={{ fontWeight: 500 }}>{trx.id}</td>
-                                <td>{trx.user_name}</td>
-                                <td style={{ color: 'var(--admin-text-muted)' }}>{trx.created_at}</td>
-                                <td style={{ fontWeight: 600 }}>Rp {trx.amount.toLocaleString()}</td>
-                                <td>{trx.method}</td>
-                                <td>
-                                    <span className={`admin-badge ${trx.status === 'Success' ? 'badge-success' : 'badge-warning'}`}>
-                                        {trx.status}
-                                    </span>
-                                </td>
-                            </tr>
                         ))}
-                    </tbody>
-                </table>
+                    </div>
+                </div>
+            </div>
+
+            {/* Latest Transactions Table */}
+            <div className="admin-table-container">
+                <div className="admin-table-header-row">
+                    <h3 className="admin-card-title" style={{ margin: 0 }}>Transaksi Terbaru</h3>
+                </div>
+                <div style={{ overflowX: 'auto' }}>
+                    <table className="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Order ID</th>
+                                <th>Pelanggan</th>
+                                <th>Tanggal</th>
+                                <th>Jumlah</th>
+                                <th>Metode (Midtrans)</th>
+                                <th>Status Pembayaran</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {loading ? (
+                                <tr><td colSpan="6" style={{ textAlign: 'center', padding: '16px' }}><Loader className="animate-spin" /> Fetching data...</td></tr>
+                            ) : recentOrders.length > 0 ? recentOrders.map((trx, idx) => (
+                                <tr key={trx.id || idx}>
+                                    <td style={{ fontWeight: 500 }}>{trx.id}</td>
+                                    <td>{trx.user_name}</td>
+                                    <td style={{ color: 'var(--admin-text-muted)' }}>{trx.created_at}</td>
+                                    <td style={{ fontWeight: 600 }}>Rp {trx.amount.toLocaleString()}</td>
+                                    <td>{trx.method}</td>
+                                    <td>
+                                        <span className={`admin-badge ${trx.status === 'Success' ? 'badge-success' : 'badge-warning'}`}>
+                                            {trx.status}
+                                        </span>
+                                    </td>
+                                </tr>
+                            )) : (
+                                <tr><td colSpan="6" style={{ textAlign: 'center', padding: '16px' }}>Belum ada transaksi sama sekali.</td></tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
-    </div>
-);
+    );
+};
 
 const UsersView = ({ showToast }) => {
     const [users, setUsers] = useState([]);
@@ -539,10 +581,10 @@ const TransactionsView = ({ showToast }) => {
         try {
             const { data, error } = await supabase.from('transactions').select('*').order('created_at', { ascending: false });
             if (error) throw error;
-            setTransactions(data && data.length > 0 ? data : INITIAL_TRANSACTIONS);
+            setTransactions(data && data.length > 0 ? data : []);
         } catch (error) {
-            setTransactions(INITIAL_TRANSACTIONS);
-            showToast('Memakai data transaksi manual...', 'error');
+            setTransactions([]);
+            showToast('Sistem kesulitan mengambil data secara live dari Supabase', 'error');
         } finally {
             setIsLoading(false);
         }
@@ -559,15 +601,21 @@ const TransactionsView = ({ showToast }) => {
             <div className="admin-grid" style={{ marginBottom: '32px' }}>
                 <div className="admin-card" style={{ borderLeft: '4px solid #10b981' }}>
                     <div className="admin-card-title">Transaksi Sukses (Midtrans)</div>
-                    <div className="admin-card-value" style={{ fontSize: '24px', marginTop: '8px' }}>1,240</div>
+                    <div className="admin-card-value" style={{ fontSize: '24px', marginTop: '8px' }}>
+                        {isLoading ? <Loader className="animate-spin" size={20} /> : transactions.filter(t => t.status === 'Success').length}
+                    </div>
                 </div>
                 <div className="admin-card" style={{ borderLeft: '4px solid #f59e0b' }}>
                     <div className="admin-card-title">Menunggu Pembayaran</div>
-                    <div className="admin-card-value" style={{ fontSize: '24px', marginTop: '8px' }}>15</div>
+                    <div className="admin-card-value" style={{ fontSize: '24px', marginTop: '8px' }}>
+                        {isLoading ? <Loader className="animate-spin" size={20} /> : transactions.filter(t => t.status !== 'Success' && t.status !== 'Failed').length}
+                    </div>
                 </div>
                 <div className="admin-card" style={{ borderLeft: '4px solid #3b82f6' }}>
                     <div className="admin-card-title">Dalam Pengiriman</div>
-                    <div className="admin-card-value" style={{ fontSize: '24px', marginTop: '8px' }}>42</div>
+                    <div className="admin-card-value" style={{ fontSize: '24px', marginTop: '8px' }}>
+                        {isLoading ? <Loader className="animate-spin" size={20} /> : transactions.filter(t => t.delivery_status === 'Shipped').length}
+                    </div>
                 </div>
             </div>
 
@@ -655,7 +703,7 @@ const AdminAuthView = ({ onLoginSuccess }) => {
                 .select('*')
                 .eq('email', email)
                 .eq('password', password)
-                .single();
+                .maybeSingle();
 
             if (error || !data) throw new Error('Email atau password salah!');
             if (data.role !== 'Admin') throw new Error('Akses Ditolak: Anda bukan Admin!');
