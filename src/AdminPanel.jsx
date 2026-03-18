@@ -185,7 +185,7 @@ const DashboardView = ({ products }) => {
                                 <th>Pelanggan</th>
                                 <th>Tanggal</th>
                                 <th>Jumlah</th>
-                                <th>Metode (Midtrans)</th>
+                                <th>Metode Pembayaran</th>
                                 <th>Status Pembayaran</th>
                             </tr>
                         </thead>
@@ -722,7 +722,7 @@ const TransactionsView = ({ showToast }) => {
             {/* Midtrans Summary */}
             <div className="admin-grid" style={{ marginBottom: '32px' }}>
                 <div className="admin-card" style={{ borderLeft: '4px solid #10b981' }}>
-                    <div className="admin-card-title">Transaksi Sukses (Midtrans)</div>
+                    <div className="admin-card-title">Transaksi Sukses</div>
                     <div className="admin-card-value" style={{ fontSize: '24px', marginTop: '8px' }}>
                         {isLoading ? <Loader className="animate-spin" size={20} /> : transactions.filter(t => t.status === 'Success').length}
                     </div>
@@ -761,7 +761,7 @@ const TransactionsView = ({ showToast }) => {
                                 <th>Pelanggan</th>
                                 <th>Tanggal & Waktu</th>
                                 <th>Total Nilai</th>
-                                <th>Metode (Midtrans)</th>
+                                <th>Metode Pembayaran</th>
                                 <th>Status Pembayaran</th>
                                 <th>Progress Deliveri</th>
                                 <th>Aksi</th>
@@ -969,7 +969,7 @@ function AdminDashboard({ adminUser, onLogout }) {
     const NAV_ITEMS = [
         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
         { id: 'users', label: 'Manajemen User', icon: Users },
-        { id: 'transactions', label: 'Transaksi (Midtrans)', icon: CreditCard },
+        { id: 'transactions', label: 'Transaksi', icon: CreditCard },
         { id: 'products', label: 'Manajemen Produk', icon: Package },
     ];
 
