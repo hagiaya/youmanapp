@@ -84,3 +84,24 @@ VALUES ('YOUMAN Premium Kit', 299000, 45, 128);
 
 INSERT INTO public.products (name, price, stock, sales) 
 VALUES ('Basic Fitness Band', 89000, 12, 340);
+
+-- 7. SETTINGS TABLE (Global Configuration)
+CREATE TABLE IF NOT EXISTS public.settings (
+  id VARCHAR(100) PRIMARY KEY, -- Misal: payment_settings
+  value JSONB NOT NULL DEFAULT '{}',
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Inisialisasi Data Pengaturan Pembayaran Default
+INSERT INTO public.settings (id, value)
+VALUES ('payment_settings', '{
+  "manual_transfer_enabled": true,
+  "bank_name": "BCA",
+  "bank_account_number": "1234 5678 90",
+  "bank_account_name": "PT YOUMAN NUSANTARA",
+  "qris_url": "https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=YOUMAN-PAYMENT",
+  "pakasir_enabled": true,
+  "qris_enabled": true
+}')
+ON CONFLICT (id) DO NOTHING;
