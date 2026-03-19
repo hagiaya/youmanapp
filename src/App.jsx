@@ -473,9 +473,15 @@ const ProfilView = ({ streak, bestStreak, onReset, setActiveTab, userId }) => {
     
     // Delivery Progress Tracker State
     const [transactions, setTransactions] = useState([]);
+    const [userName, setUserName] = useState('Memuat nama...');
     
     useEffect(() => {
         if (!navigator.onLine) return;
+        
+        supabase.from('users').select('name').eq('id', userId).single().then(({ data }) => {
+            if (data && data.name) setUserName(data.name);
+        });
+
         supabase.from('transactions').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(3).then(({ data }) => {
             if (data) setTransactions(data);
         });
@@ -504,7 +510,7 @@ const ProfilView = ({ streak, bestStreak, onReset, setActiveTab, userId }) => {
                 <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#1E1E1E', margin: '0 auto 16px', border: '2px solid rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <User size={32} color="#888" />
                 </div>
-                <h1 style={{ fontSize: '24px', margin: '0 0 4px 0' }}>John Doe</h1>
+                <h1 style={{ fontSize: '24px', margin: '0 0 4px 0' }}>{userName}</h1>
                 <p style={{ color: '#FFD700', fontWeight: 'bold', fontSize: '14px', letterSpacing: '1px' }}>{level}</p>
             </div>
 
