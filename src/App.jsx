@@ -22,7 +22,11 @@ import {
     Zap,
     AlertTriangle,
     Bell,
-    BellRing
+    BellRing,
+    CreditCard,
+    QrCode,
+    Smartphone,
+    Wallet
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -358,6 +362,7 @@ const StoreView = ({ onBack, userId }) => {
     ]);
     const [loading, setLoading] = useState(false);
     const [checkoutProduct, setCheckoutProduct] = useState(null);
+    const [paymentMethod, setPaymentMethod] = useState(null); // 'transfer', 'qris', 'pakasir'
     const [proofFile, setProofFile] = useState(null);
 
     useEffect(() => {
@@ -368,8 +373,8 @@ const StoreView = ({ onBack, userId }) => {
     }, []);
 
     const handleConfirmPayment = async () => {
-        if (!proofFile) {
-            alert('Harap unggah bukti transfer pembayaran Anda terlebih dahulu agar pesanan dapat diproses oleh sistem.');
+        if ((paymentMethod === 'transfer' || paymentMethod === 'qris') && !proofFile) {
+            alert('Harap unggah bukti pembayaran Anda terlebih dahulu agar pesanan dapat diproses oleh sistem.');
             return;
         }
 
@@ -377,19 +382,31 @@ const StoreView = ({ onBack, userId }) => {
         try {
             const transactionId = `TRX-${Date.now().toString().slice(-6)}`;
             
+            let methodLabel = '';
+            let status = 'Menunggu Konfirmasi';
+            if (paymentMethod === 'transfer') methodLabel = 'Manual Transfer';
+            else if (paymentMethod === 'qris') methodLabel = 'QRIS';
+            else if (paymentMethod === 'pakasir') {
+                methodLabel = 'Pakasir.com';
+                status = 'Pending';
+            }
+
             // Simpan transaksi di Supabase
             await supabase.from('transactions').insert({
                 id: transactionId,
                 user_id: userId,
                 user_name: 'User YOUMAN',
                 amount: checkoutProduct.price,
-                status: 'Menunggu Konfirmasi',
-                method: 'Manual Transfer',
+                status: status,
+                method: methodLabel,
                 delivery_status: 'Processing'
             });
 
-            // Simulasi upload file berhasil
-            alert(`Pemesanan berhasil diajukan dan sedang diproses!\n\nOrder ID: ${transactionId}\nAdmin Pakasir kami akan segera memverifikasi bukti pembayaran Anda dalam waktu maksimal 1x24 Jam.`);
+            if (paymentMethod === 'pakasir') {
+                alert(`Pesanan melalui Pakasir.com telah dibuat!\n\nOrder ID: ${transactionId}\nSilakan hubungi Admin atau cek dashboard Pakasir untuk penyelesaian pembayaran otomatis.`);
+            } else {
+                alert(`Pemesanan berhasil diajukan dan sedang diproses!\n\nOrder ID: ${transactionId}\nAdmin kami akan segera memverifikasi bukti pembayaran Anda dalam waktu maksimal 1x24 Jam.`);
+            }
             onBack();
         } catch (e) {
             alert('Gagal memproses pemesanan: ' + e.message);
@@ -398,7 +415,8 @@ const StoreView = ({ onBack, userId }) => {
         }
     };
 
-    if (checkoutProduct) {
+    // Render Payment Method Selection
+    if (checkoutProduct && !paymentMethod) {
         return (
             <motion.div
                 initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
@@ -407,39 +425,146 @@ const StoreView = ({ onBack, userId }) => {
                 <button onClick={() => setCheckoutProduct(null)} style={{ background: 'none', border: 'none', color: '#FFF', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '24px', cursor: 'pointer' }}>
                     <ChevronLeft size={24} /> Batal & Kembali ke Store
                 </button>
-                <SectionHeader title="Checkout" subtitle="Selesaikan pesanan eksklusif Anda." />
+                <SectionHeader title="Metode Pembayaran" subtitle="Pilih cara bayar yang paling mudah bagi Anda." />
 
                 <div className="glass-card" style={{ marginBottom: '16px', padding: '16px' }}>
-                    <h3 style={{ margin: '0 0 12px 0', fontSize: '16px' }}>Ringkasan Pesanan</h3>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span>{checkoutProduct.name}</span>
-                        <span style={{ fontWeight: 'bold' }}>Rp {checkoutProduct.price.toLocaleString()}</span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                            <div style={{ fontSize: '12px', color: '#888' }}>Total Tagihan</div>
+                            <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#00E676' }}>Rp {checkoutProduct.price.toLocaleString()}</div>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                            <div style={{ fontSize: '14px', fontWeight: '600' }}>{checkoutProduct.name}</div>
+                        </div>
                     </div>
                 </div>
 
-                <div className="glass-card" style={{ marginBottom: '16px', padding: '16px', background: 'rgba(0, 230, 118, 0.05)', border: '1px solid rgba(0, 230, 118, 0.2)' }}>
-                    <h3 style={{ margin: '0 0 12px 0', color: '#00E676', fontSize: '16px' }}>Instruksi Pembayaran Manual</h3>
-                    <p style={{ margin: '0 0 12px 0', fontSize: '13px', color: '#CCC', lineHeight: '1.5' }}>
-                        Silakan transfer nominal <strong>Rp {checkoutProduct.price.toLocaleString()}</strong> ke Rekening Bank Resmi kami di bawah ini:
-                    </p>
-                    
-                    <div style={{ background: 'rgba(0, 0, 0, 0.4)', padding: '12px', borderRadius: '8px', marginBottom: '12px', textAlign: 'center' }}>
-                        <div style={{ fontSize: '12px', color: '#888', marginBottom: '4px' }}>BCA (Bank Central Asia)</div>
-                        <div style={{ fontSize: '20px', fontWeight: 'bold', letterSpacing: '2px', marginBottom: '4px' }}>1234 5678 90</div>
-                        <div style={{ fontSize: '12px', color: '#888' }}>a.n. PT YOUMAN NUSANTARA</div>
+                <div style={{ display: 'grid', gap: '12px' }}>
+                    <div 
+                        onClick={() => setPaymentMethod('transfer')}
+                        className="glass-card" 
+                        style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '16px', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.05)' }}
+                    >
+                        <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <Wallet color="#FFF" />
+                        </div>
+                        <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: '600' }}>Transfer Bank (Manual)</div>
+                            <div style={{ fontSize: '12px', color: '#888' }}>Verifikasi manual 1x24 jam</div>
+                        </div>
+                        <ChevronRight size={18} color="#444" />
+                    </div>
+
+                    <div 
+                        onClick={() => setPaymentMethod('qris')}
+                        className="glass-card" 
+                        style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '16px', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.05)' }}
+                    >
+                        <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <QrCode color="#FFF" />
+                        </div>
+                        <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: '600' }}>QRIS (Scan & Bayar)</div>
+                            <div style={{ fontSize: '12px', color: '#888' }}>Instan via OVO, GoPay, ShopeePay</div>
+                        </div>
+                        <ChevronRight size={18} color="#444" />
+                    </div>
+
+                    <div 
+                        onClick={() => setPaymentMethod('pakasir')}
+                        className="glass-card" 
+                        style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '16px', cursor: 'pointer', border: '1px solid rgba(0,230,118,0.1)' }}
+                    >
+                        <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(0,230,118,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <Smartphone color="#00E676" />
+                        </div>
+                        <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: '600', color: '#00E676' }}>Pakasir.com (Otomatis)</div>
+                            <div style={{ fontSize: '12px', color: '#888' }}>Pembayaran instan & terverifikasi</div>
+                        </div>
+                        <ChevronRight size={18} color="#00E676" />
                     </div>
                 </div>
+            </motion.div>
+        );
+    }
 
-                <div className="glass-card" style={{ marginBottom: '24px', padding: '16px' }}>
-                    <h3 style={{ margin: '0 0 12px 0', fontSize: '16px' }}>Unggah Bukti Transfer</h3>
-                    <p style={{ margin: '0 0 12px 0', fontSize: '12px', color: '#AAA' }}>Harap lampirkan foto / penangkapan layar (screenshot) bukti transfer suskes agar sistem dapat lanjut memproses pesanan Anda.</p>
-                    <input 
-                        type="file" 
-                        accept="image/*"
-                        onChange={(e) => setProofFile(e.target.files[0])}
-                        style={{ width: '100%', padding: '12px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', color: '#FFF' }}
-                    />
-                </div>
+    // Render Payment Instructions
+    if (checkoutProduct && paymentMethod) {
+        return (
+            <motion.div
+                initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
+                style={{ paddingBottom: '100px' }}
+            >
+                <button onClick={() => { setPaymentMethod(null); setProofFile(null); }} style={{ background: 'none', border: 'none', color: '#FFF', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '24px', cursor: 'pointer' }}>
+                    <ChevronLeft size={24} /> Ganti Metode Pembayaran
+                </button>
+                <SectionHeader 
+                    title={paymentMethod === 'transfer' ? "Transfer Bank" : (paymentMethod === 'qris' ? "QRIS Pay" : "Sistem Pakasir")} 
+                    subtitle="Selesaikan langkah terakhir pesanan Anda." 
+                />
+
+                {paymentMethod === 'transfer' && (
+                    <>
+                        <div className="glass-card" style={{ marginBottom: '16px', padding: '16px', background: 'rgba(0, 230, 118, 0.05)', border: '1px solid rgba(0, 230, 118, 0.2)' }}>
+                            <h3 style={{ margin: '0 0 12px 0', color: '#00E676', fontSize: '16px' }}>Instruksi Transfer</h3>
+                            <p style={{ margin: '0 0 12px 0', fontSize: '13px', color: '#CCC', lineHeight: '1.5' }}>
+                                Transfer tepat <strong>Rp {checkoutProduct.price.toLocaleString()}</strong> ke:
+                            </p>
+                            <div style={{ background: 'rgba(0, 0, 0, 0.4)', padding: '12px', borderRadius: '8px', textAlign: 'center' }}>
+                                <div style={{ fontSize: '12px', color: '#888', marginBottom: '4px' }}>BCA (Bank Central Asia)</div>
+                                <div style={{ fontSize: '20px', fontWeight: 'bold', letterSpacing: '2px', marginBottom: '4px' }}>1234 5678 90</div>
+                                <div style={{ fontSize: '12px', color: '#888' }}>a.n. PT YOUMAN NUSANTARA</div>
+                            </div>
+                        </div>
+                        
+                        <div className="glass-card" style={{ marginBottom: '24px', padding: '16px' }}>
+                            <h3 style={{ margin: '0 0 12px 0', fontSize: '16px' }}>Unggah Bukti Transfer</h3>
+                            <input 
+                                type="file" 
+                                accept="image/*"
+                                onChange={(e) => setProofFile(e.target.files[0])}
+                                style={{ width: '100%', padding: '12px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', color: '#FFF' }}
+                            />
+                        </div>
+                    </>
+                )}
+
+                {paymentMethod === 'qris' && (
+                    <>
+                        <div className="glass-card" style={{ marginBottom: '16px', padding: '16px', textAlign: 'center' }}>
+                            <h3 style={{ margin: '0 0 12px 0', fontSize: '16px' }}>Scan Kode QRIS</h3>
+                            <div style={{ background: '#FFF', padding: '16px', borderRadius: '12px', display: 'inline-block', marginBottom: '12px' }}>
+                                <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=YOUMAN-PAYMENT" alt="QRIS" style={{ width: '150px', height: '150px' }} />
+                            </div>
+                            <p style={{ margin: 0, fontSize: '13px', color: '#AAA' }}>Scan menggunakan aplikasi e-wallet Anda.</p>
+                            <div style={{ marginTop: '8px', fontWeight: 'bold', fontSize: '18px', color: '#00E676' }}>Rp {checkoutProduct.price.toLocaleString()}</div>
+                        </div>
+                        
+                        <div className="glass-card" style={{ marginBottom: '24px', padding: '16px' }}>
+                            <h3 style={{ margin: '0 0 12px 0', fontSize: '16px' }}>Unggah Bukti Scan</h3>
+                            <input 
+                                type="file" 
+                                accept="image/*"
+                                onChange={(e) => setProofFile(e.target.files[0])}
+                                style={{ width: '100%', padding: '12px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', color: '#FFF' }}
+                            />
+                        </div>
+                    </>
+                )}
+
+                {paymentMethod === 'pakasir' && (
+                    <div className="glass-card" style={{ marginBottom: '24px', padding: '24px', textAlign: 'center' }}>
+                        <Smartphone size={48} color="#00E676" style={{ marginBottom: '16px' }} />
+                        <h3 style={{ margin: '0 0 12px 0', fontSize: '18px' }}>Pintu Pembayaran Pakasir</h3>
+                        <p style={{ margin: '0 0 24px 0', fontSize: '14px', color: '#AAA', lineHeight: '1.6' }}>
+                            Anda akan diarahkan ke sistem Pakasir.com untuk menyelesaikan pembayaran secara instan menggunakan berbagai metode digital otomatis.
+                        </p>
+                        <div style={{ padding: '12px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', fontSize: '13px', color: '#888' }}>
+                            Klik tombol di bawah untuk integrasi langsung.
+                        </div>
+                    </div>
+                )}
 
                 <button 
                     className="btn-primary" 
@@ -447,7 +572,7 @@ const StoreView = ({ onBack, userId }) => {
                     onClick={handleConfirmPayment}
                     disabled={loading}
                 >
-                    {loading ? 'Memproses Pesanan...' : 'Kirim Bukti Pembayaran'}
+                    {loading ? 'Memproses...' : (paymentMethod === 'pakasir' ? 'Buka Link Pakasir' : 'Kirim Bukti Pembayaran')}
                 </button>
             </motion.div>
         );
