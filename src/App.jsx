@@ -365,10 +365,25 @@ const StoreView = ({ onBack, userId }) => {
     const [paymentMethod, setPaymentMethod] = useState(null); // 'transfer', 'qris', 'pakasir'
     const [proofFile, setProofFile] = useState(null);
 
+    const [paymentSettings, setPaymentSettings] = useState({
+        manual_transfer_enabled: true,
+        bank_name: 'BCA',
+        bank_account_number: '1234 5678 90',
+        bank_account_name: 'PT YOUMAN NUSANTARA',
+        qris_url: 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=YOUMAN-PAYMENT',
+        pakasir_enabled: true,
+        qris_enabled: true
+    });
+
     useEffect(() => {
         // Fetch products that are active
         supabase.from('products').select('*').eq('status', 'Active').then(({ data }) => {
             if (data && data.length > 0) setProducts(data);
+        });
+
+        // Fetch payment settings
+        supabase.from('settings').select('*').eq('id', 'payment_settings').single().then(({ data }) => {
+            if (data) setPaymentSettings(data.value);
         });
     }, []);
 
@@ -440,50 +455,56 @@ const StoreView = ({ onBack, userId }) => {
                 </div>
 
                 <div style={{ display: 'grid', gap: '12px' }}>
-                    <div 
-                        onClick={() => setPaymentMethod('transfer')}
-                        className="glass-card" 
-                        style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '16px', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.05)' }}
-                    >
-                        <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <Wallet color="#FFF" />
+                    {paymentSettings.manual_transfer_enabled && (
+                        <div 
+                            onClick={() => setPaymentMethod('transfer')}
+                            className="glass-card" 
+                            style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '16px', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.05)' }}
+                        >
+                            <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <Wallet color="#FFF" />
+                            </div>
+                            <div style={{ flex: 1 }}>
+                                <div style={{ fontWeight: '600' }}>Transfer Bank (Manual)</div>
+                                <div style={{ fontSize: '12px', color: '#888' }}>Verifikasi manual 1x24 jam</div>
+                            </div>
+                            <ChevronRight size={18} color="#444" />
                         </div>
-                        <div style={{ flex: 1 }}>
-                            <div style={{ fontWeight: '600' }}>Transfer Bank (Manual)</div>
-                            <div style={{ fontSize: '12px', color: '#888' }}>Verifikasi manual 1x24 jam</div>
-                        </div>
-                        <ChevronRight size={18} color="#444" />
-                    </div>
+                    )}
 
-                    <div 
-                        onClick={() => setPaymentMethod('qris')}
-                        className="glass-card" 
-                        style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '16px', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.05)' }}
-                    >
-                        <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <QrCode color="#FFF" />
+                    {paymentSettings.qris_enabled && (
+                        <div 
+                            onClick={() => setPaymentMethod('qris')}
+                            className="glass-card" 
+                            style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '16px', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.05)' }}
+                        >
+                            <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <QrCode color="#FFF" />
+                            </div>
+                            <div style={{ flex: 1 }}>
+                                <div style={{ fontWeight: '600' }}>QRIS (Scan & Bayar)</div>
+                                <div style={{ fontSize: '12px', color: '#888' }}>Instan via OVO, GoPay, ShopeePay</div>
+                            </div>
+                            <ChevronRight size={18} color="#444" />
                         </div>
-                        <div style={{ flex: 1 }}>
-                            <div style={{ fontWeight: '600' }}>QRIS (Scan & Bayar)</div>
-                            <div style={{ fontSize: '12px', color: '#888' }}>Instan via OVO, GoPay, ShopeePay</div>
-                        </div>
-                        <ChevronRight size={18} color="#444" />
-                    </div>
+                    )}
 
-                    <div 
-                        onClick={() => setPaymentMethod('pakasir')}
-                        className="glass-card" 
-                        style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '16px', cursor: 'pointer', border: '1px solid rgba(0,230,118,0.1)' }}
-                    >
-                        <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(0,230,118,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <Smartphone color="#00E676" />
+                    {paymentSettings.pakasir_enabled && (
+                        <div 
+                            onClick={() => setPaymentMethod('pakasir')}
+                            className="glass-card" 
+                            style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '16px', cursor: 'pointer', border: '1px solid rgba(0,230,118,0.1)' }}
+                        >
+                            <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(0,230,118,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <Smartphone color="#00E676" />
+                            </div>
+                            <div style={{ flex: 1 }}>
+                                <div style={{ fontWeight: '600', color: '#00E676' }}>Pakasir.com (Otomatis)</div>
+                                <div style={{ fontSize: '12px', color: '#888' }}>Pembayaran instan & terverifikasi</div>
+                            </div>
+                            <ChevronRight size={18} color="#00E676" />
                         </div>
-                        <div style={{ flex: 1 }}>
-                            <div style={{ fontWeight: '600', color: '#00E676' }}>Pakasir.com (Otomatis)</div>
-                            <div style={{ fontSize: '12px', color: '#888' }}>Pembayaran instan & terverifikasi</div>
-                        </div>
-                        <ChevronRight size={18} color="#00E676" />
-                    </div>
+                    )}
                 </div>
             </motion.div>
         );
@@ -512,9 +533,9 @@ const StoreView = ({ onBack, userId }) => {
                                 Transfer tepat <strong>Rp {checkoutProduct.price.toLocaleString()}</strong> ke:
                             </p>
                             <div style={{ background: 'rgba(0, 0, 0, 0.4)', padding: '12px', borderRadius: '8px', textAlign: 'center' }}>
-                                <div style={{ fontSize: '12px', color: '#888', marginBottom: '4px' }}>BCA (Bank Central Asia)</div>
-                                <div style={{ fontSize: '20px', fontWeight: 'bold', letterSpacing: '2px', marginBottom: '4px' }}>1234 5678 90</div>
-                                <div style={{ fontSize: '12px', color: '#888' }}>a.n. PT YOUMAN NUSANTARA</div>
+                                <div style={{ fontSize: '12px', color: '#888', marginBottom: '4px' }}>{paymentSettings.bank_name}</div>
+                                <div style={{ fontSize: '20px', fontWeight: 'bold', letterSpacing: '2px', marginBottom: '4px' }}>{paymentSettings.bank_account_number}</div>
+                                <div style={{ fontSize: '12px', color: '#888' }}>a.n. {paymentSettings.bank_account_name}</div>
                             </div>
                         </div>
                         
@@ -535,7 +556,7 @@ const StoreView = ({ onBack, userId }) => {
                         <div className="glass-card" style={{ marginBottom: '16px', padding: '16px', textAlign: 'center' }}>
                             <h3 style={{ margin: '0 0 12px 0', fontSize: '16px' }}>Scan Kode QRIS</h3>
                             <div style={{ background: '#FFF', padding: '16px', borderRadius: '12px', display: 'inline-block', marginBottom: '12px' }}>
-                                <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=YOUMAN-PAYMENT" alt="QRIS" style={{ width: '150px', height: '150px' }} />
+                                <img src={paymentSettings.qris_url} alt="QRIS" style={{ maxWidth: '180px', borderRadius: '8px' }} />
                             </div>
                             <p style={{ margin: 0, fontSize: '13px', color: '#AAA' }}>Scan menggunakan aplikasi e-wallet Anda.</p>
                             <div style={{ marginTop: '8px', fontWeight: 'bold', fontSize: '18px', color: '#00E676' }}>Rp {checkoutProduct.price.toLocaleString()}</div>

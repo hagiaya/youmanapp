@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
     LayoutDashboard, Users, CreditCard, Package, Search, Bell,
     Edit, Trash2, CheckCircle, Clock, Truck, Plus, X, ArrowUpRight, ArrowDownRight,
-    LogOut, MoreHorizontal, UserCheck, UserX, Loader, AlertTriangle
+    LogOut, MoreHorizontal, UserCheck, UserX, Loader, AlertTriangle, Settings, QrCode as QrIcon
 } from 'lucide-react';
 import {
     AreaChart, Area, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer
@@ -859,6 +859,141 @@ const TransactionsView = ({ showToast }) => {
     );
 };
 
+const SettingsView = ({ showToast }) => {
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [settings, setSettings] = useState({
+        manual_transfer_enabled: true,
+        bank_name: 'BCA',
+        bank_account_number: '1234 5678 90',
+        bank_account_name: 'PT YOUMAN NUSANTARA',
+        qris_url: 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=YOUMAN-PAYMENT',
+        pakasir_enabled: true,
+        qris_enabled: true
+    });
+
+    useEffect(() => {
+        fetchSettings();
+    }, []);
+
+    const fetchSettings = async () => {
+        try {
+            const { data, error } = await supabase.from('settings').select('*').eq('id', 'payment_settings').single();
+            if (data) {
+                setSettings(data.value);
+            } else if (error && error.code === 'PGRST116') {
+                // Not found, we'll create it on first save
+            }
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleSave = async () => {
+        setSaving(true);
+        try {
+            const { error } = await supabase.from('settings').upsert({
+                id: 'payment_settings',
+                value: settings,
+                updated_at: new Date()
+            });
+            if (error) throw error;
+            showToast('Pengaturan pembayaran berhasil disimpan!', 'success');
+        } catch (err) {
+            console.error(err);
+            showToast('Gagal menyimpan ke Supabase. Pastikan tabel "settings" sudah ada.', 'error');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    if (loading) return <div style={{ padding: '40px', textAlign: 'center' }}><Loader className="animate-spin" /> Memuat Pengaturan...</div>;
+
+    return (
+        <div className="admin-fade-in">
+            <h1 className="admin-page-title">Pengaturan Pembayaran</h1>
+            
+            <div className="admin-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '24px' }}>
+                {/* Manual Transfer Settings */}
+                <div className="admin-card">
+                    <div className="admin-card-header" style={{ marginBottom: '20px' }}>
+                        <h3 className="admin-card-title">Transfer Bank Manual</h3>
+                        <div 
+                            onClick={() => setSettings({ ...settings, manual_transfer_enabled: !settings.manual_transfer_enabled })}
+                            style={{ width: '40px', height: '20px', background: settings.manual_transfer_enabled ? 'var(--admin-primary)' : '#cbd5e1', borderRadius: '10px', position: 'relative', cursor: 'pointer', transition: '0.3s' }}
+                        >
+                            <div style={{ width: '16px', height: '16px', background: '#fff', borderRadius: '50%', position: 'absolute', top: '2px', left: settings.manual_transfer_enabled ? '22px' : '2px', transition: '0.3s' }} />
+                        </div>
+                    </div>
+                    
+                    <div className="admin-form-group">
+                        <label>Nama Bank</label>
+                        <input type="text" className="admin-form-control" value={settings.bank_name} onChange={e => setSettings({ ...settings, bank_name: e.target.value })} />
+                    </div>
+                    <div className="admin-form-group">
+                        <label>Nomor Rekening</label>
+                        <input type="text" className="admin-form-control" value={settings.bank_account_number} onChange={e => setSettings({ ...settings, bank_account_number: e.target.value })} />
+                    </div>
+                    <div className="admin-form-group">
+                        <label>Atas Nama (A.N)</label>
+                        <input type="text" className="admin-form-control" value={settings.bank_account_name} onChange={e => setSettings({ ...settings, bank_account_name: e.target.value })} />
+                    </div>
+                </div>
+
+                {/* QRIS Settings */}
+                <div className="admin-card">
+                    <div className="admin-card-header" style={{ marginBottom: '20px' }}>
+                        <h3 className="admin-card-title">Metode QRIS</h3>
+                        <div 
+                            onClick={() => setSettings({ ...settings, qris_enabled: !settings.qris_enabled })}
+                            style={{ width: '40px', height: '20px', background: settings.qris_enabled ? 'var(--admin-primary)' : '#cbd5e1', borderRadius: '10px', position: 'relative', cursor: 'pointer', transition: '0.3s' }}
+                        >
+                            <div style={{ width: '16px', height: '16px', background: '#fff', borderRadius: '50%', position: 'absolute', top: '2px', left: settings.qris_enabled ? '22px' : '2px', transition: '0.3s' }} />
+                        </div>
+                    </div>
+                    <div className="admin-form-group">
+                        <label>URL Gambar QRIS / Payload data</label>
+                        <input type="text" className="admin-form-control" placeholder="URL Gambar QRIS" value={settings.qris_url} onChange={e => setSettings({ ...settings, qris_url: e.target.value })} />
+                    </div>
+                    <div style={{ marginTop: '12px', textAlign: 'center', padding: '16px', background: '#f8fafc', borderRadius: '8px', border: '1px dashed #e2e8f0' }}>
+                        <img src={settings.qris_url} alt="QRIS Preview" style={{ maxWidth: '120px', borderRadius: '8px' }} />
+                        <div style={{ fontSize: '11px', color: '#64748b', marginTop: '8px' }}>Tampilan QRIS di sisi pengguna</div>
+                    </div>
+                </div>
+
+                {/* Pakasir.com Settings */}
+                <div className="admin-card">
+                    <div className="admin-card-header" style={{ marginBottom: '20px' }}>
+                        <h3 className="admin-card-title">Sistem Pakasir.com (Otomatis)</h3>
+                        <div 
+                            onClick={() => setSettings({ ...settings, pakasir_enabled: !settings.pakasir_enabled })}
+                            style={{ width: '40px', height: '20px', background: settings.pakasir_enabled ? 'var(--admin-primary)' : '#cbd5e1', borderRadius: '10px', position: 'relative', cursor: 'pointer', transition: '0.3s' }}
+                        >
+                            <div style={{ width: '16px', height: '16px', background: '#fff', borderRadius: '50%', position: 'absolute', top: '2px', left: settings.pakasir_enabled ? '22px' : '2px', transition: '0.3s' }} />
+                        </div>
+                    </div>
+                    <p style={{ fontSize: '13px', color: '#64748b', lineHeight: '1.6' }}>
+                        Metode ini akan mengarahkan pengguna ke sistem pembayaran otomatis pihak ketiga. Pastikan API Key Pakasir Anda sudah terpasang di file environment.
+                    </p>
+                </div>
+            </div>
+
+            <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'flex-end' }}>
+                <button 
+                    className="admin-btn admin-btn-primary" 
+                    style={{ padding: '12px 32px' }}
+                    onClick={handleSave}
+                    disabled={saving}
+                >
+                    {saving ? <Loader className="animate-spin" size={18} /> : 'Simpan Seluruh Perubahan'}
+                </button>
+            </div>
+        </div>
+    );
+};
+
 // --- ADMIN AUTH COMPONENT ---
 
 const AdminAuthView = ({ onLoginSuccess }) => {
@@ -971,6 +1106,7 @@ function AdminDashboard({ adminUser, onLogout }) {
         { id: 'users', label: 'Manajemen User', icon: Users },
         { id: 'transactions', label: 'Transaksi', icon: CreditCard },
         { id: 'products', label: 'Manajemen Produk', icon: Package },
+        { id: 'settings', label: 'Manajemen Pembayaran', icon: Settings },
     ];
 
     const renderView = () => {
@@ -979,6 +1115,7 @@ function AdminDashboard({ adminUser, onLogout }) {
             case 'users': return <UsersView showToast={showToast} />;
             case 'transactions': return <TransactionsView showToast={showToast} />;
             case 'products': return <ProductsView products={products} setProducts={setProducts} showToast={showToast} />;
+            case 'settings': return <SettingsView showToast={showToast} />;
             default: return <DashboardView products={products} />;
         }
     };
