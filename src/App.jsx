@@ -20,7 +20,9 @@ import {
     Activity,
     Shield,
     Zap,
-    AlertTriangle
+    AlertTriangle,
+    Bell,
+    BellRing
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -100,6 +102,16 @@ const HomeView = ({ rituals, toggleRitual, streak }) => {
     const completedCount = rituals.filter(r => r.completed).length;
     const progressPercent = rituals.length > 0 ? (completedCount / rituals.length) * 100 : 0;
     
+    // Alarm state for Product Reminder
+    const [isAlarmActive, setIsAlarmActive] = useState(false);
+    
+    // Automatically turn off alarm if ritual is completed
+    useEffect(() => {
+        if (rituals.find(r => r.title === 'Minum Youman')?.completed) {
+            setIsAlarmActive(false);
+        }
+    }, [rituals]);
+
     // Determine level dynamically based on streak
     let level = 'Pria Pemula';
     if (streak >= 7 && streak < 21) level = 'Pria Disiplin';
@@ -141,19 +153,31 @@ const HomeView = ({ rituals, toggleRitual, streak }) => {
 
             {/* Product Reminder */}
             {!rituals.find(r => r.title === 'Minum Youman')?.completed && (
-                <div className="glass-card" style={{ 
+                <div className={`glass-card ${isAlarmActive ? 'alarm-ringing' : ''}`} style={{ 
                     padding: '16px', 
                     marginBottom: '24px',
-                    background: 'linear-gradient(45deg, rgba(20,20,20,1) 0%, rgba(40,40,40,1) 100%)',
-                    borderLeft: '4px solid #FFF'
+                    background: isAlarmActive ? 'linear-gradient(45deg, #400 0%, #800 100%)' : 'linear-gradient(45deg, rgba(20,20,20,1) 0%, rgba(40,40,40,1) 100%)',
+                    borderLeft: isAlarmActive ? '4px solid #FF3B30' : '4px solid #FFF',
+                    transition: 'all 0.3s ease'
                 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div>
-                            <h3 style={{ fontSize: '16px', marginBottom: '4px' }}>Waktunya Minum YOUMAN</h3>
-                            <p style={{ fontSize: '12px', color: '#AAA' }}>Optimalkan testosteron harian Anda</p>
+                            <h3 style={{ fontSize: '16px', marginBottom: '4px', color: isAlarmActive ? '#FFF' : 'inherit' }}>Waktunya Minum YOUMAN</h3>
+                            <p style={{ fontSize: '12px', color: isAlarmActive ? '#FFBDBD' : '#AAA' }}>Optimalkan testosteron harian Anda</p>
                         </div>
-                        <Droplet size={24} color="#FFF" />
+                        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                            <button 
+                                onClick={() => setIsAlarmActive(!isAlarmActive)}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '8px', borderRadius: '50%', background: isAlarmActive ? 'rgba(255, 255, 255, 0.2)' : 'rgba(255,255,255,0.05)' }}
+                            >
+                                {isAlarmActive ? <BellRing size={20} color="#FF3B30" /> : <Bell size={20} color="#FFF" />}
+                            </button>
+                            <Droplet size={24} color={isAlarmActive ? '#FF3B30' : '#FFF'} />
+                        </div>
                     </div>
+                    {isAlarmActive && (
+                        <audio autoPlay loop src="https://actions.google.com/sounds/v1/alarms/digital_watch_alarm_long.ogg" />
+                    )}
                 </div>
             )}
 
