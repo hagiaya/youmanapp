@@ -101,10 +101,10 @@ const HomeView = ({ rituals, toggleRitual, streak }) => {
     const progressPercent = rituals.length > 0 ? (completedCount / rituals.length) * 100 : 0;
     
     // Determine level dynamically based on streak
-    let level = 'Unstructured Man';
-    if (streak >= 7 && streak < 21) level = 'Disciplined Man';
-    else if (streak >= 21 && streak < 60) level = 'Elite Discipline';
-    else if (streak >= 60) level = 'Self-Made King';
+    let level = 'Pria Pemula';
+    if (streak >= 7 && streak < 21) level = 'Pria Disiplin';
+    else if (streak >= 21 && streak < 60) level = 'Disiplin Elit';
+    else if (streak >= 60) level = 'Sang Raja';
 
     return (
         <motion.div
@@ -464,10 +464,10 @@ const ProgressView = ({ rituals, streak, history }) => {
 };
 
 const ProfilView = ({ streak, bestStreak, onReset, setActiveTab, userId }) => {
-    let level = 'Unstructured Man';
-    if (streak >= 7 && streak < 21) level = 'Disciplined Man';
-    else if (streak >= 21 && streak < 60) level = 'Elite Discipline';
-    else if (streak >= 60) level = 'Self-Made King';
+    let level = 'Pria Pemula';
+    if (streak >= 7 && streak < 21) level = 'Pria Disiplin';
+    else if (streak >= 21 && streak < 60) level = 'Disiplin Elit';
+    else if (streak >= 60) level = 'Sang Raja';
 
     const testosteronScore = "Optimal"; // Mocked score for UI
     
