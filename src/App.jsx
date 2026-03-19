@@ -427,6 +427,63 @@ const StoreView = ({ onBack, userId }) => {
     );
 };
 
+const NotificationView = ({ onBack }) => {
+    const [emailNotif, setEmailNotif] = useState(true);
+    const [waNotif, setWaNotif] = useState(false);
+    const [reminderNotif, setReminderNotif] = useState(true);
+
+    return (
+        <motion.div
+            initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
+            style={{ paddingBottom: '100px' }}
+        >
+            <button onClick={onBack} style={{ background: 'none', border: 'none', color: '#FFF', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '24px', cursor: 'pointer' }}>
+                <ChevronLeft size={24} /> Kembali ke Profil
+            </button>
+            <SectionHeader title="Notifikasi" subtitle="Pilih preferensi pengingat Anda." />
+
+            <div className="glass-card" style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px' }}>
+                <div>
+                    <h3 style={{ margin: '0 0 4px 0', fontSize: '16px' }}>Pengingat Harian (Email)</h3>
+                    <p style={{ margin: 0, fontSize: '12px', color: '#AAA' }}>Dapatkan laporan kedisiplinan dan pengingat via email.</p>
+                </div>
+                <div 
+                    onClick={() => setEmailNotif(!emailNotif)}
+                    style={{ width: '40px', height: '24px', background: emailNotif ? '#00E676' : 'rgba(255,255,255,0.2)', borderRadius: '12px', position: 'relative', cursor: 'pointer', transition: '0.3s' }}
+                >
+                    <div style={{ width: '20px', height: '20px', background: '#FFF', borderRadius: '50%', position: 'absolute', top: '2px', left: emailNotif ? '18px' : '2px', transition: '0.3s' }} />
+                </div>
+            </div>
+
+            <div className="glass-card" style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px' }}>
+                <div>
+                    <h3 style={{ margin: '0 0 4px 0', fontSize: '16px' }}>Pengingat WhatsApp</h3>
+                    <p style={{ margin: 0, fontSize: '12px', color: '#AAA' }}>Terima notifikasi di WhatsApp saat jadwal protocol tiba.</p>
+                </div>
+                <div 
+                    onClick={() => setWaNotif(!waNotif)}
+                    style={{ width: '40px', height: '24px', background: waNotif ? '#00E676' : 'rgba(255,255,255,0.2)', borderRadius: '12px', position: 'relative', cursor: 'pointer', transition: '0.3s' }}
+                >
+                    <div style={{ width: '20px', height: '20px', background: '#FFF', borderRadius: '50%', position: 'absolute', top: '2px', left: waNotif ? '18px' : '2px', transition: '0.3s' }} />
+                </div>
+            </div>
+
+            <div className="glass-card" style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px' }}>
+                <div>
+                    <h3 style={{ margin: '0 0 4px 0', fontSize: '16px' }}>Alarm Dalam Aplikasi</h3>
+                    <p style={{ margin: 0, fontSize: '12px', color: '#AAA' }}>Bunyi suara saat aplikasi terbuka untuk pengingat.</p>
+                </div>
+                <div 
+                    onClick={() => setReminderNotif(!reminderNotif)}
+                    style={{ width: '40px', height: '24px', background: reminderNotif ? '#00E676' : 'rgba(255,255,255,0.2)', borderRadius: '12px', position: 'relative', cursor: 'pointer', transition: '0.3s' }}
+                >
+                    <div style={{ width: '20px', height: '20px', background: '#FFF', borderRadius: '50%', position: 'absolute', top: '2px', left: reminderNotif ? '18px' : '2px', transition: '0.3s' }} />
+                </div>
+            </div>
+        </motion.div>
+    );
+};
+
 const ProgressView = ({ rituals, streak, history }) => {
     const completionRate = rituals.length > 0 ? Math.round((rituals.filter(r => r.completed).length / rituals.length) * 100) : 0;
     const consistentDaysCount = history.filter(h => h.percentage > 0).slice(-7).length;
@@ -591,7 +648,7 @@ const ProfilView = ({ streak, bestStreak, onReset, setActiveTab, userId }) => {
                     </div>
                 )}
 
-                <div className="glass-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', cursor: 'pointer' }}>
+                <div onClick={() => setActiveTab('notifications')} className="glass-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', cursor: 'pointer' }}>
                     <span style={{ fontWeight: '500' }}>Pengaturan Notifikasi</span>
                     <ChevronRight size={18} color="#444" />
                 </div>
@@ -899,6 +956,12 @@ function AppContent() {
                             key="store" 
                             onBack={() => setActiveTab('profile')} 
                             userId={getUserId()} 
+                        />
+                    )}
+                    {activeTab === 'notifications' && (
+                        <NotificationView 
+                            key="notifications" 
+                            onBack={() => setActiveTab('profile')} 
                         />
                     )}
                     {activeTab === 'progress' && (
