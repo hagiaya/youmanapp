@@ -357,6 +357,8 @@ const StoreView = ({ onBack, userId }) => {
         { id: '102', name: 'Basic Fitness Band', price: 89000, stock: 12, status: 'Active' }
     ]);
     const [loading, setLoading] = useState(false);
+    const [checkoutProduct, setCheckoutProduct] = useState(null);
+    const [proofFile, setProofFile] = useState(null);
 
     useEffect(() => {
         // Fetch products that are active
@@ -365,37 +367,91 @@ const StoreView = ({ onBack, userId }) => {
         });
     }, []);
 
-    const handleBuy = async (product) => {
+    const handleConfirmPayment = async () => {
+        if (!proofFile) {
+            alert('Harap unggah bukti transfer pembayaran Anda terlebih dahulu agar pesanan dapat diproses oleh sistem.');
+            return;
+        }
+
         setLoading(true);
         try {
             const transactionId = `TRX-${Date.now().toString().slice(-6)}`;
             
-            // 1. Simpan transaksi di Supabase. Status: Pending, Delivery: Processing
+            // Simpan transaksi di Supabase
             await supabase.from('transactions').insert({
                 id: transactionId,
                 user_id: userId,
                 user_name: 'User YOUMAN',
-                amount: product.price,
-                status: 'Pending',
-                method: 'Pakasir.com',
+                amount: checkoutProduct.price,
+                status: 'Menunggu Konfirmasi',
+                method: 'Manual Transfer',
                 delivery_status: 'Processing'
             });
 
-            // 2. Call Pakasir API
-            const apiKey = import.meta.env.VITE_PAKASIR_API_KEY;
-            
-            // Mock API integrasi Pakasir: Kita menampilkan konfirmasi pembayaran
-            // Di level production, proses fetch menuju API Pakasir (POST endpoint) dengan menyertakan apiKey di header Authorization
-            alert(`Transaksi berhasil divalidasi ke sistem Pakasir!\n\nTotal Tagihan: Rp ${product.price.toLocaleString()}\nOrder ID: ${transactionId}\n(Sistem akan mengarahkan Anda ke Halaman Checkout Pakasir)`);
-            
-            // Karena ini MVP, ubah langsung status transaksi local (atau ditangani webhook nanti)
+            // Simulasi upload file berhasil
+            alert(`Pemesanan berhasil diajukan dan sedang diproses!\n\nOrder ID: ${transactionId}\nAdmin Pakasir kami akan segera memverifikasi bukti pembayaran Anda dalam waktu maksimal 1x24 Jam.`);
             onBack();
         } catch (e) {
-            alert('Gagal memproses pembayaran: ' + e.message);
+            alert('Gagal memproses pemesanan: ' + e.message);
         } finally {
             setLoading(false);
         }
     };
+
+    if (checkoutProduct) {
+        return (
+            <motion.div
+                initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
+                style={{ paddingBottom: '100px' }}
+            >
+                <button onClick={() => setCheckoutProduct(null)} style={{ background: 'none', border: 'none', color: '#FFF', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '24px', cursor: 'pointer' }}>
+                    <ChevronLeft size={24} /> Batal & Kembali ke Store
+                </button>
+                <SectionHeader title="Checkout" subtitle="Selesaikan pesanan eksklusif Anda." />
+
+                <div className="glass-card" style={{ marginBottom: '16px', padding: '16px' }}>
+                    <h3 style={{ margin: '0 0 12px 0', fontSize: '16px' }}>Ringkasan Pesanan</h3>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span>{checkoutProduct.name}</span>
+                        <span style={{ fontWeight: 'bold' }}>Rp {checkoutProduct.price.toLocaleString()}</span>
+                    </div>
+                </div>
+
+                <div className="glass-card" style={{ marginBottom: '16px', padding: '16px', background: 'rgba(0, 230, 118, 0.05)', border: '1px solid rgba(0, 230, 118, 0.2)' }}>
+                    <h3 style={{ margin: '0 0 12px 0', color: '#00E676', fontSize: '16px' }}>Instruksi Pembayaran Manual</h3>
+                    <p style={{ margin: '0 0 12px 0', fontSize: '13px', color: '#CCC', lineHeight: '1.5' }}>
+                        Silakan transfer nominal <strong>Rp {checkoutProduct.price.toLocaleString()}</strong> ke Rekening Bank Resmi kami di bawah ini:
+                    </p>
+                    
+                    <div style={{ background: 'rgba(0, 0, 0, 0.4)', padding: '12px', borderRadius: '8px', marginBottom: '12px', textAlign: 'center' }}>
+                        <div style={{ fontSize: '12px', color: '#888', marginBottom: '4px' }}>BCA (Bank Central Asia)</div>
+                        <div style={{ fontSize: '20px', fontWeight: 'bold', letterSpacing: '2px', marginBottom: '4px' }}>1234 5678 90</div>
+                        <div style={{ fontSize: '12px', color: '#888' }}>a.n. PT YOUMAN NUSANTARA</div>
+                    </div>
+                </div>
+
+                <div className="glass-card" style={{ marginBottom: '24px', padding: '16px' }}>
+                    <h3 style={{ margin: '0 0 12px 0', fontSize: '16px' }}>Unggah Bukti Transfer</h3>
+                    <p style={{ margin: '0 0 12px 0', fontSize: '12px', color: '#AAA' }}>Harap lampirkan foto / penangkapan layar (screenshot) bukti transfer suskes agar sistem dapat lanjut memproses pesanan Anda.</p>
+                    <input 
+                        type="file" 
+                        accept="image/*"
+                        onChange={(e) => setProofFile(e.target.files[0])}
+                        style={{ width: '100%', padding: '12px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', color: '#FFF' }}
+                    />
+                </div>
+
+                <button 
+                    className="btn-primary" 
+                    style={{ width: '100%', background: '#00E676', color: '#000' }}
+                    onClick={handleConfirmPayment}
+                    disabled={loading}
+                >
+                    {loading ? 'Memproses Pesanan...' : 'Kirim Bukti Pembayaran'}
+                </button>
+            </motion.div>
+        );
+    }
 
     return (
         <motion.div
@@ -405,7 +461,7 @@ const StoreView = ({ onBack, userId }) => {
             <button onClick={onBack} style={{ background: 'none', border: 'none', color: '#FFF', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '24px', cursor: 'pointer' }}>
                 <ChevronLeft size={24} /> Kembali ke Profil
             </button>
-            <SectionHeader title="Official Store" subtitle="Beli langsung dari aplikasi (Powered by Pakasir)" />
+            <SectionHeader title="Official Store" subtitle="Investasikan pada kesehatan pria Anda." />
 
             {products.map(product => (
                 <div key={product.id} className="glass-card" style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -416,10 +472,10 @@ const StoreView = ({ onBack, userId }) => {
                     <button 
                         className="btn-primary" 
                         style={{ width: 'auto', padding: '10px 20px', background: '#FFF' }}
-                        onClick={() => handleBuy(product)}
+                        onClick={() => setCheckoutProduct(product)}
                         disabled={loading}
                     >
-                        {loading ? 'Sedang Memproses...' : 'Beli Sekarang'}
+                        Beli Sekarang
                     </button>
                 </div>
             ))}
