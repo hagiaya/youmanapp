@@ -26,7 +26,8 @@ import {
     CreditCard,
     QrCode,
     Smartphone,
-    Wallet
+    Wallet,
+    Package
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -47,10 +48,11 @@ import { supabase } from './utils/supabase';
 
 const BottomNav = ({ activeTab, setActiveTab }) => {
     const tabs = [
-        { id: 'home', icon: HomeIcon, label: 'Dashboard' },
+        { id: 'home', icon: HomeIcon, label: 'Home' },
+        { id: 'store', icon: ShoppingCart, label: 'Store' },
         { id: 'protocol', icon: Clock, label: 'Protocol' },
         { id: 'knowledge', icon: Brain, label: 'Knowledge' },
-        { id: 'progress', icon: TrendingUp, label: 'Progress' },
+        { id: 'progress', icon: TrendingUp, label: 'Stats' },
         { id: 'profile', icon: User, label: 'Profile' }
     ];
 
@@ -93,6 +95,56 @@ const BottomNav = ({ activeTab, setActiveTab }) => {
     );
 };
 
+const NextRoutineBanner = ({ rituals }) => {
+    const [currentTime, setCurrentTime] = useState(new Date());
+    
+    useEffect(() => {
+        const timer = setInterval(() => setCurrentTime(new Date()), 60000);
+        return () => clearInterval(timer);
+    }, []);
+
+    const timeStr = `${currentTime.getHours().toString().padStart(2, '0')}:${currentTime.getMinutes().toString().padStart(2, '0')}`;
+    
+    // Find next ritual
+    const remainingRituals = rituals
+        .filter(r => !r.completed)
+        .sort((a, b) => a.time.localeCompare(b.time));
+    
+    const nextRitual = remainingRituals.find(r => r.time >= timeStr) || remainingRituals[0];
+    const allDone = rituals.every(r => r.completed);
+
+    if (allDone) {
+        return (
+            <div className="glass-card" style={{ padding: '24px', background: 'linear-gradient(135deg, rgba(0,230,118,0.2) 0%, rgba(0,0,0,0.5) 100%)', marginBottom: '24px', border: '1px solid rgba(0,230,118,0.3)', textAlign: 'center' }}>
+                <CheckCircle2 size={32} color="#00E676" style={{ marginBottom: '12px' }} />
+                <h3 style={{ margin: '0 0 4px 0', fontSize: '18px' }}>Misi Hari Ini Tuntas!</h3>
+                <p style={{ margin: 0, fontSize: '13px', color: '#AAA' }}>Semua protocol telah dijalankan. Terus pertahankan!</p>
+            </div>
+        );
+    }
+
+    if (!nextRitual) return null;
+
+    return (
+        <div className="glass-card" style={{ padding: '24px', background: 'linear-gradient(135deg, rgba(0,230,118,0.15) 0%, rgba(20,20,20,0.8) 100%)', marginBottom: '24px', border: '1px solid rgba(0,230,118,0.2)', position: 'relative', overflow: 'hidden' }}>
+            <Bell size={40} color="rgba(0,230,118,0.1)" style={{ position: 'absolute', right: -5, top: -5 }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+                <div>
+                    <span style={{ fontSize: '10px', color: '#00E676', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1.5px', background: 'rgba(0,230,118,0.1)', padding: '4px 8px', borderRadius: '4px' }}>
+                        NEXT ROUTINE
+                    </span>
+                    <h3 style={{ margin: '12px 0 4px 0', fontSize: '20px', fontWeight: 'bold' }}>{nextRitual.title}</h3>
+                    <p style={{ margin: 0, fontSize: '13px', color: '#BBB' }}>{nextRitual.subtitle}</p>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: '24px', fontWeight: '900', color: '#FFF' }}>{nextRitual.time}</div>
+                    <div style={{ fontSize: '10px', color: '#888' }}>SCHEDULED</div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const SectionHeader = ({ title, subtitle }) => (
     <div style={{ marginBottom: '24px' }}>
         <h1 style={{ fontSize: '28px', color: '#FFF', fontWeight: 'bold', letterSpacing: '-0.5px' }}>{title}</h1>
@@ -102,19 +154,19 @@ const SectionHeader = ({ title, subtitle }) => (
 
 // --- Pages ---
 
-const HomeView = ({ rituals, toggleRitual, streak }) => {
+const HomeView = ({ rituals, toggleRitual, streak, isAlarmActive, toggleAlarm }) => {
     const completedCount = rituals.filter(r => r.completed).length;
     const progressPercent = rituals.length > 0 ? (completedCount / rituals.length) * 100 : 0;
     
-    // Alarm state for Product Reminder
-    const [isAlarmActive, setIsAlarmActive] = useState(false);
-    
-    // Automatically turn off alarm if ritual is completed
-    useEffect(() => {
-        if (rituals.find(r => r.title === 'Minum Youman')?.completed) {
-            setIsAlarmActive(false);
-        }
-    }, [rituals]);
+    // Quotes for motivation
+    const quotes = [
+        "Disiplin adalah jembatan antara tujuan dan pencapaian.",
+        "Singkirkan kenyamanan, jemput kemenangan.",
+        "Hari ini adalah investasi untuk versi terbaik dirimu.",
+        "Rasa sakit karena disiplin jauh lebih ringan daripada rasa sakit karena penyesalan.",
+        "Bangun lebih pagi, bekerja lebih keras, hidup lebih bermakna."
+    ];
+    const todayQuote = quotes[new Date().getDate() % quotes.length];
 
     // Determine level dynamically based on streak
     let level = 'Pria Pemula';
@@ -139,6 +191,9 @@ const HomeView = ({ rituals, toggleRitual, streak }) => {
                     <span style={{ fontWeight: 'bold', fontSize: '16px' }}>{streak}</span>
                 </div>
             </div>
+
+            {/* Next Routine Banner */}
+            <NextRoutineBanner rituals={rituals} />
 
             {/* Daily Status */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '24px' }}>
@@ -170,12 +225,6 @@ const HomeView = ({ rituals, toggleRitual, streak }) => {
                             <p style={{ fontSize: '12px', color: isAlarmActive ? '#FFBDBD' : '#AAA' }}>Optimalkan testosteron harian Anda</p>
                         </div>
                         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                            <button 
-                                onClick={() => setIsAlarmActive(!isAlarmActive)}
-                                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '8px', borderRadius: '50%', background: isAlarmActive ? 'rgba(255, 255, 255, 0.2)' : 'rgba(255,255,255,0.05)' }}
-                            >
-                                {isAlarmActive ? <BellRing size={20} color="#FF3B30" /> : <Bell size={20} color="#FFF" />}
-                            </button>
                             <Droplet size={24} color={isAlarmActive ? '#FF3B30' : '#FFF'} />
                         </div>
                     </div>
@@ -224,7 +273,18 @@ const HomeView = ({ rituals, toggleRitual, streak }) => {
                                 {item.completed && <CheckCircle2 size={16} />}
                             </div>
                             <div style={{ flex: 1, opacity: item.completed ? 0.5 : 1 }}>
-                                <div style={{ fontWeight: '600', fontSize: '15px' }}>{item.title}</div>
+                                <div style={{ fontWeight: '700', fontSize: '16px', marginBottom: '4px' }}>{item.title}</div>
+                                {item.subtitle && <div style={{ fontSize: '11px', color: '#888', marginBottom: '8px' }}>{item.subtitle}</div>}
+                                {item.time && (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#00E676', fontWeight: 'bold' }}>
+                                        <Clock size={12} /> {item.time}
+                                    </div>
+                                )}
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <div className={`checkbox ${item.completed ? 'checked' : ''}`}>
+                                    {item.completed && <CheckCircle2 size={16} />}
+                                </div>
                             </div>
                         </div>
                     ))
@@ -245,13 +305,28 @@ const HomeView = ({ rituals, toggleRitual, streak }) => {
                     "Tidur kurang dari 5 jam per malam selama seminggu dapat menurunkan level testosteron sebesar 10-15%. Prioritaskan istirahat Anda untuk performa puncak."
                 </p>
             </div>
+
+            {/* Daily Motivation Section */}
+            <div className="glass-card" style={{ marginTop: '24px', position: 'relative', overflow: 'hidden', padding: '24px', background: 'rgba(255,255,255,0.03)' }}>
+                <Zap size={48} color="rgba(255,255,255,0.05)" style={{ position: 'absolute', top: -10, right: -10 }} />
+                <h3 style={{ fontSize: '14px', color: '#00E676', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '12px', fontWeight: 'bold' }}>HARI INI</h3>
+                <p style={{ fontSize: '18px', fontWeight: '500', fontStyle: 'italic', lineHeight: '1.4', margin: 0, color: '#FFF' }}>
+                    "{todayQuote}"
+                </p>
+            </div>
         </motion.div>
     );
 };
 
 const ProtocolView = ({ rituals, setRituals }) => {
     // Phase for 30 Day Program
-    const [activePhase] = useState('Phase 1: Discipline');
+    const [selectedDate, setSelectedDate] = useState(new Date());
+
+    const days = [...Array(7)].map((_, i) => {
+        const d = new Date();
+        d.setDate(d.getDate() + i);
+        return d;
+    });
 
     const handleResetProtocol = () => {
         const defaultRituals = [
@@ -272,11 +347,52 @@ const ProtocolView = ({ rituals, setRituals }) => {
         >
             <SectionHeader title="Protocol" subtitle="30 Day Discipline Program" />
 
-            <div className="glass-card" style={{ marginBottom: '24px', overflow: 'hidden', padding: 0 }}>
-                <div style={{ padding: '20px', background: 'rgba(255,255,255,0.05)' }}>
-                    <div style={{ fontSize: '12px', color: '#888', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>Current Program</div>
-                    <div style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '8px' }}>{activePhase}</div>
-                    <p style={{ fontSize: '13px', color: '#AAA' }}>Fokus pada pembentukan kebiasaan dasar. Jangan lewatkan satu hari pun.</p>
+            <div style={{ marginBottom: '32px', display: 'flex', gap: '12px', overflowX: 'auto', paddingBottom: '12px', msOverflowStyle: 'none', scrollbarWidth: 'none' }} className="calendar-scroll">
+                {days.map((date, idx) => {
+                    const isSelected = date.toDateString() === selectedDate.toDateString();
+                    const isToday = date.toDateString() === new Date().toDateString();
+                    return (
+                        <div 
+                            key={idx}
+                            onClick={() => setSelectedDate(date)}
+                            className="glass-card"
+                            style={{
+                                minWidth: '70px',
+                                padding: '16px 12px',
+                                textAlign: 'center',
+                                cursor: 'pointer',
+                                background: isSelected ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.03)',
+                                border: isSelected ? '1px solid rgba(255,255,255,0.3)' : '1px solid rgba(255,255,255,0.05)',
+                                transition: 'all 0.2s ease',
+                                transform: isSelected ? 'scale(1.05)' : 'scale(1)',
+                                flexShrink: 0
+                            }}
+                        >
+                            <div style={{ fontSize: '11px', color: isSelected ? '#FFF' : '#888', textTransform: 'uppercase', marginBottom: '8px', fontWeight: isSelected ? 'bold' : 'normal' }}>
+                                {date.toLocaleDateString('id-ID', { weekday: 'short' })}
+                            </div>
+                            <div style={{ fontSize: '20px', fontWeight: '800', position: 'relative' }}>
+                                {date.getDate()}
+                                {isToday && (
+                                    <div style={{ position: 'absolute', bottom: '-4px', left: '50%', transform: 'translateX(-50%)', width: '4px', height: '4px', background: '#00E676', borderRadius: '50%' }} />
+                                )}
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+
+            <div className="glass-card" style={{ marginBottom: '24px', background: 'rgba(0, 230, 118, 0.05)', border: '1px solid rgba(0, 230, 118, 0.1)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <Calendar size={20} color="#00E676" />
+                    <div>
+                        <div style={{ fontSize: '14px', fontWeight: 'bold' }}>
+                            Jadwal {selectedDate.toDateString() === new Date().toDateString() ? 'Hari Ini' : selectedDate.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' })}
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#888' }}>
+                            {selectedDate.toDateString() === new Date().toDateString() ? 'Laksanakan protokol harian Anda.' : 'Siapkan disiplin Anda untuk hari esok.'}
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -289,29 +405,79 @@ const ProtocolView = ({ rituals, setRituals }) => {
 
             {rituals.map(item => (
                 <div key={item.id} className="glass-card" style={{ padding: '16px', marginBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontWeight: '500' }}>{item.title}</span>
-                    <button 
-                        onClick={() => setRituals(rituals.filter(r => r.id !== item.id))}
-                        style={{ background: 'none', border: 'none', color: '#FF3B30', fontSize: '12px' }}
-                    >Hapus</button>
+                    <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: '700', fontSize: '15px' }}>{item.title}</div>
+                        <div style={{ fontSize: '12px', color: '#888' }}>{item.subtitle}</div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <input 
+                            type="time" 
+                            value={item.time} 
+                            onChange={(e) => {
+                                setRituals(rituals.map(r => r.id === item.id ? { ...r, time: e.target.value } : r));
+                            }}
+                            style={{ 
+                                background: 'rgba(255,255,255,0.05)', 
+                                border: '1px solid rgba(255,255,255,0.1)', 
+                                color: '#FFF', 
+                                padding: '6px 8px', 
+                                borderRadius: '8px',
+                                fontSize: '12px',
+                                outline: 'none'
+                            }}
+                        />
+                        <button 
+                            onClick={() => setRituals(rituals.filter(r => r.id !== item.id))}
+                            style={{ background: 'none', border: 'none', color: '#FF3B30', fontSize: '12px', padding: '0' }}
+                        >Hapus</button>
+                    </div>
                 </div>
             ))}
-            
-            <button 
-                className="btn-primary" 
-                style={{ width: '100%', marginTop: '12px', background: 'rgba(255,255,255,0.1)', color: '#FFF' }}
-                onClick={() => {
-                    const title = prompt("Nama Ritual Baru:");
-                    if (title) setRituals([...rituals, { id: Date.now(), title, completed: false }]);
-                }}
-            >
-                + Tambah Ritual
-            </button>
+
+            <div style={{ marginTop: '24px' }}>
+                <button 
+                    onClick={() => {
+                        const newId = Date.now();
+                        setRituals([...rituals, { id: newId, title: 'Ritual Baru', subtitle: 'Atur deskripsi ritual Anda', time: '12:00', completed: false }]);
+                    }}
+                    style={{ width: '100%', padding: '14px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)', border: '1px dashed rgba(255,255,255,0.2)', color: '#888', fontWeight: 'bold', fontSize: '13px' }}
+                >
+                    + Tambah Protocol Kustom
+                </button>
+            </div>
         </motion.div>
     );
 };
 
-const KnowledgeView = () => {
+const KnowledgeView = ({ streak }) => {
+    const [knowledgeList, setKnowledgeList] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+
+    let level = 'Pria Pemula';
+    if (streak >= 7 && streak < 21) level = 'Pria Disiplin';
+    else if (streak >= 21 && streak < 60) level = 'Disiplin Elit';
+    else if (streak >= 60) level = 'Sang Raja';
+
+    useEffect(() => {
+        const fetchKnowledge = async () => {
+            setIsLoading(true);
+            const { data } = await supabase.from('knowledge_base').select('*').order('created_at', { ascending: false });
+            if (data) {
+                // Determine accessible levels
+                const accessibleLevels = ['Semua Level', level];
+                if (level === 'Sang Raja') accessibleLevels.push('Disiplin Elit', 'Pria Disiplin', 'Pria Pemula');
+                else if (level === 'Disiplin Elit') accessibleLevels.push('Pria Disiplin', 'Pria Pemula');
+                else if (level === 'Pria Disiplin') accessibleLevels.push('Pria Pemula');
+
+                // Filter logic
+                const filtered = data.filter(item => accessibleLevels.includes(item.target_level));
+                setKnowledgeList(filtered);
+            }
+            setIsLoading(false);
+        };
+        fetchKnowledge();
+    }, [streak, level]);
+
     return (
         <motion.div
             initial={{ opacity: 0, x: 20 }}
@@ -320,38 +486,73 @@ const KnowledgeView = () => {
             style={{ paddingBottom: '100px' }}
         >
             <SectionHeader title="Knowledge" subtitle="Pahami mesin penggerak maskulinitas Anda." />
+            
+            <div style={{ background: 'rgba(255,255,255,0.05)', padding: '12px', borderRadius: '8px', marginBottom: '24px', fontSize: '13px', color: '#AAA' }}>
+                Materi dibuka berdasarkan level kedisiplinan Anda. Level saat ini: <span style={{ color: '#00E676', fontWeight: 'bold' }}>{level}</span>
+            </div>
 
-            <div className="glass-card" style={{ marginBottom: '24px', padding: '0', overflow: 'hidden' }}>
-                <img src="https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?auto=format&fit=crop&q=80&w=1000" alt="Testosterone" style={{ width: '100%', height: '180px', objectFit: 'cover' }} />
-                <div style={{ padding: '20px' }}>
-                    <h2 style={{ fontSize: '20px', marginBottom: '12px' }}>Testosteron 101</h2>
-                    <p style={{ fontSize: '14px', color: '#AAA', lineHeight: '1.6', marginBottom: '16px' }}>
-                        Testosteron bukan sekadar hormon otot. Ia adalah fondasi penggerak untuk energi, fokus mental, dan kedisiplinan seorang pria.
-                    </p>
-                    <div style={{ display: 'grid', gap: '12px' }}>
-                        <div style={{ background: 'rgba(255,255,255,0.03)', padding: '12px', borderRadius: '8px' }}>
-                            <div style={{ fontWeight: 'bold', fontSize: '14px', marginBottom: '4px' }}>⚠️ Bahaya T-Rendah</div>
-                            <div style={{ fontSize: '12px', color: '#888' }}>Kabut otak, energi lemah, motivasi menurun.</div>
-                        </div>
-                        <div style={{ background: 'rgba(255,255,255,0.03)', padding: '12px', borderRadius: '8px' }}>
-                            <div style={{ fontWeight: 'bold', fontSize: '14px', marginBottom: '4px' }}>⚡ Cara Meningkatkan</div>
-                            <div style={{ fontSize: '12px', color: '#888' }}>Angkat beban berat, tidur 7-8 jam, diet kaya protein & lemak sehat.</div>
+            {isLoading ? (
+                <div style={{ textAlign: 'center', padding: '40px', color: '#888' }}>Memuat materi...</div>
+            ) : knowledgeList.length > 0 ? (
+                knowledgeList.map(item => (
+                    <div key={item.id} className="glass-card" style={{ marginBottom: '24px', padding: '0', overflow: 'hidden' }}>
+                        {item.image_url && (
+                            <img src={item.image_url} alt={item.title} style={{ width: '100%', height: '180px', objectFit: 'cover' }} />
+                        )}
+                        <div style={{ padding: '20px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px', gap: '12px' }}>
+                                <h2 style={{ fontSize: '18px', margin: 0, lineHeight: '1.4' }}>{item.title}</h2>
+                                <span style={{ fontSize: '10px', background: 'rgba(0,230,118,0.1)', color: '#00E676', padding: '6px 10px', borderRadius: '12px', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                                    {item.target_level}
+                                </span>
+                            </div>
+                            <div style={{ fontSize: '14px', color: '#BBB', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>
+                                {item.description}
+                            </div>
                         </div>
                     </div>
+                ))
+            ) : (
+                <div className="glass-card" style={{ textAlign: 'center', padding: '40px', color: '#888' }}>
+                    Belum ada materi untuk level Anda saat ini.
                 </div>
-            </div>
+            )}
 
-            <div className="glass-card" style={{ background: 'linear-gradient(180deg, rgba(20,20,20,1) 0%, rgba(30,30,30,1) 100%)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-                    <Shield size={24} color="#FFF" />
-                    <h2 style={{ fontSize: '18px', margin: 0 }}>Peran Produk YOUMAN</h2>
-                </div>
-                <p style={{ fontSize: '14px', color: '#AAA', lineHeight: '1.6', marginBottom: '16px' }}>
-                    Suplemen YOUMAN dirancang khusus dengan bahan aktif yang diakui secara ilmiah dapat membantu menyeimbangkan hormon dan mempercepat pemulihan energi, memberikan Anda keuntungan tak adil dalam kedisiplinan harian.
-                </p>
-                {/* Note: User clicks button inside Profile to access the In-App Store */}
-            </div>
+            <MotivationPanel />
         </motion.div>
+    );
+};
+
+const MotivationPanel = () => {
+    const quotes = [
+        "Disiplin adalah jembatan antara cita-cita dan pencapaian.",
+        "Rasa sakit karena disiplin jauh lebih ringan daripada rasa sakit karena penyesalan.",
+        "Kemenangan terbesar adalah kemenangan atas diri sendiri.",
+        "Jangan berhenti saat lelah, berhentilah saat selesai.",
+        "Setiap hari adalah kesempatan untuk menjadi versi terbaik dirimu.",
+        "Pria hebat tidak lahir dari kemudahan, tapi dari tempaan kesulitan.",
+        "Waktumu terbatas, jangan habiskan untuk menjalani hidup orang lain."
+    ];
+    const [quote] = useState(quotes[Math.floor(Math.random() * quotes.length)]);
+
+    return (
+        <div className="glass-card" style={{ 
+            background: 'linear-gradient(135deg, rgba(0,230,118,0.1) 0%, rgba(0,184,212,0.1) 100%)',
+            padding: '28px 20px',
+            textAlign: 'center',
+            borderRadius: '20px',
+            marginTop: '16px',
+            border: '1px solid rgba(0,230,118,0.2)',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.2)'
+        }}>
+            <div style={{ marginBottom: '16px', opacity: 0.6, fontSize: '24px' }}>“</div>
+            <div style={{ fontSize: '17px', fontWeight: '500', fontStyle: 'italic', color: '#EEE', lineHeight: '1.6', marginBottom: '16px' }}>
+                {quote}
+            </div>
+            <div style={{ fontSize: '10px', color: '#00E676', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '2px' }}>
+                Pesan Untuk Anda Hari Ini
+            </div>
+        </div>
     );
 };
 
@@ -404,6 +605,9 @@ const StoreView = ({ onBack, userId }) => {
             else if (paymentMethod === 'pakasir') {
                 methodLabel = 'Pakasir.com';
                 status = 'Pending';
+            } else if (paymentMethod === 'xendit') {
+                methodLabel = 'Xendit Gateway';
+                status = 'Pending';
             }
 
             // Simpan transaksi di Supabase
@@ -411,14 +615,23 @@ const StoreView = ({ onBack, userId }) => {
                 id: transactionId,
                 user_id: userId,
                 user_name: 'User YOUMAN',
-                amount: checkoutProduct.price,
+                amount: checkoutProduct.is_promo && checkoutProduct.discount_price ? checkoutProduct.discount_price : checkoutProduct.price,
                 status: status,
                 method: methodLabel,
-                delivery_status: 'Processing'
+                delivery_status: 'Processing',
+                items: [{ 
+                    id: checkoutProduct.id, 
+                    name: checkoutProduct.name, 
+                    price: checkoutProduct.is_promo && checkoutProduct.discount_price ? checkoutProduct.discount_price : checkoutProduct.price, 
+                    quantity: 1 
+                }]
             });
 
             if (paymentMethod === 'pakasir') {
                 alert(`Pesanan melalui Pakasir.com telah dibuat!\n\nOrder ID: ${transactionId}\nSilakan hubungi Admin atau cek dashboard Pakasir untuk penyelesaian pembayaran otomatis.`);
+            } else if (paymentMethod === 'xendit') {
+                alert(`Redirecting ke Xendit...\n\nSistem Xendit akan segera memproses pembayaran Anda secara instan.`);
+                // Di sini biasanya redirect ke Xendit Invoice URL
             } else {
                 alert(`Pemesanan berhasil diajukan dan sedang diproses!\n\nOrder ID: ${transactionId}\nAdmin kami akan segera memverifikasi bukti pembayaran Anda dalam waktu maksimal 1x24 Jam.`);
             }
@@ -446,7 +659,9 @@ const StoreView = ({ onBack, userId }) => {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div>
                             <div style={{ fontSize: '12px', color: '#888' }}>Total Tagihan</div>
-                            <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#00E676' }}>Rp {checkoutProduct.price.toLocaleString()}</div>
+                            <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#00E676' }}>
+                                Rp {((checkoutProduct.is_promo && checkoutProduct.discount_price) ? checkoutProduct.discount_price : checkoutProduct.price).toLocaleString()}
+                            </div>
                         </div>
                         <div style={{ textAlign: 'right' }}>
                             <div style={{ fontSize: '14px', fontWeight: '600' }}>{checkoutProduct.name}</div>
@@ -486,6 +701,23 @@ const StoreView = ({ onBack, userId }) => {
                                 <div style={{ fontSize: '12px', color: '#888' }}>Instan via OVO, GoPay, ShopeePay</div>
                             </div>
                             <ChevronRight size={18} color="#444" />
+                        </div>
+                    )}
+
+                    {paymentSettings.xendit_enabled && (
+                        <div 
+                            onClick={() => setPaymentMethod('xendit')}
+                            className="glass-card" 
+                            style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '16px', cursor: 'pointer', border: '1px solid rgba(82, 77, 212, 0.2)' }}
+                        >
+                            <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(82, 77, 212, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <CreditCard color="#524DD4" />
+                            </div>
+                            <div style={{ flex: 1 }}>
+                                <div style={{ fontWeight: '600', color: '#524DD4' }}>Xendit (Virtual Account/E-wallet)</div>
+                                <div style={{ fontSize: '12px', color: '#888' }}>Pembayaran instan tingkat enterprise</div>
+                            </div>
+                            <ChevronRight size={18} color="#524DD4" />
                         </div>
                     )}
 
@@ -530,7 +762,7 @@ const StoreView = ({ onBack, userId }) => {
                         <div className="glass-card" style={{ marginBottom: '16px', padding: '16px', background: 'rgba(0, 230, 118, 0.05)', border: '1px solid rgba(0, 230, 118, 0.2)' }}>
                             <h3 style={{ margin: '0 0 12px 0', color: '#00E676', fontSize: '16px' }}>Instruksi Transfer</h3>
                             <p style={{ margin: '0 0 12px 0', fontSize: '13px', color: '#CCC', lineHeight: '1.5' }}>
-                                Transfer tepat <strong>Rp {checkoutProduct.price.toLocaleString()}</strong> ke:
+                                Transfer tepat <strong>Rp {((checkoutProduct.is_promo && checkoutProduct.discount_price) ? checkoutProduct.discount_price : checkoutProduct.price).toLocaleString()}</strong> ke:
                             </p>
                             <div style={{ background: 'rgba(0, 0, 0, 0.4)', padding: '12px', borderRadius: '8px', textAlign: 'center' }}>
                                 <div style={{ fontSize: '12px', color: '#888', marginBottom: '4px' }}>{paymentSettings.bank_name}</div>
@@ -559,7 +791,9 @@ const StoreView = ({ onBack, userId }) => {
                                 <img src={paymentSettings.qris_url} alt="QRIS" style={{ maxWidth: '180px', borderRadius: '8px' }} />
                             </div>
                             <p style={{ margin: 0, fontSize: '13px', color: '#AAA' }}>Scan menggunakan aplikasi e-wallet Anda.</p>
-                            <div style={{ marginTop: '8px', fontWeight: 'bold', fontSize: '18px', color: '#00E676' }}>Rp {checkoutProduct.price.toLocaleString()}</div>
+                            <div style={{ marginTop: '8px', fontWeight: 'bold', fontSize: '18px', color: '#00E676' }}>
+                                Rp {((checkoutProduct.is_promo && checkoutProduct.discount_price) ? checkoutProduct.discount_price : checkoutProduct.price).toLocaleString()}
+                            </div>
                         </div>
                         
                         <div className="glass-card" style={{ marginBottom: '24px', padding: '16px' }}>
@@ -587,13 +821,23 @@ const StoreView = ({ onBack, userId }) => {
                     </div>
                 )}
 
+                {paymentMethod === 'xendit' && (
+                    <div className="glass-card" style={{ marginBottom: '24px', padding: '24px', textAlign: 'center' }}>
+                        <CreditCard size={48} color="#524DD4" style={{ marginBottom: '16px' }} />
+                        <h3 style={{ margin: '0 0 12px 0', fontSize: '18px' }}>Xendit Payment Gateway</h3>
+                        <p style={{ margin: '0 0 24px 0', fontSize: '14px', color: '#AAA', lineHeight: '1.6' }}>
+                            Anda akan diarahkan ke invoice aman milik Xendit untuk memilih berbagai metode pembayaran otomatis (VA, Retail Outlet, E-Wallet).
+                        </p>
+                    </div>
+                )}
+
                 <button 
                     className="btn-primary" 
                     style={{ width: '100%', background: '#00E676', color: '#000' }}
                     onClick={handleConfirmPayment}
                     disabled={loading}
                 >
-                    {loading ? 'Memproses...' : (paymentMethod === 'pakasir' ? 'Buka Link Pakasir' : 'Kirim Bukti Pembayaran')}
+                    {loading ? 'Memproses...' : (paymentMethod === 'pakasir' ? 'Buka Link Pakasir' : (paymentMethod === 'xendit' ? 'Bayar via Xendit' : 'Kirim Bukti Pembayaran'))}
                 </button>
             </motion.div>
         );
@@ -609,22 +853,76 @@ const StoreView = ({ onBack, userId }) => {
             </button>
             <SectionHeader title="Official Store" subtitle="Investasikan pada kesehatan pria Anda." />
 
-            {products.map(product => (
-                <div key={product.id} className="glass-card" style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ flex: 1, paddingRight: '12px' }}>
-                        <h3 style={{ margin: '0 0 8px 0', fontSize: '16px', fontWeight: 'bold' }}>{product.name}</h3>
-                        <p style={{ fontWeight: 'bold', color: '#00E676', margin: 0 }}>Rp {product.price.toLocaleString()}</p>
-                    </div>
-                    <button 
-                        className="btn-primary" 
-                        style={{ width: 'auto', padding: '10px 20px', background: '#FFF' }}
-                        onClick={() => setCheckoutProduct(product)}
-                        disabled={loading}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '40px' }}>
+                {products.map(product => (
+                    <div 
+                        key={product.id} 
+                        className="glass-card" 
+                        style={{ 
+                            display: 'flex', 
+                            flexDirection: 'column', 
+                            padding: 0, 
+                            borderRadius: '16px',
+                            overflow: 'hidden',
+                            position: 'relative',
+                            border: '1px solid rgba(255,255,255,0.05)'
+                        }}
                     >
-                        Beli Sekarang
-                    </button>
-                </div>
-            ))}
+                        {/* Promo Badge */}
+                        {product.is_promo && (
+                            <div style={{ 
+                                position: 'absolute', top: 8, left: 8, zIndex: 5,
+                                background: '#FF3B30', color: '#FFF', fontSize: '10px', 
+                                fontWeight: '800', padding: '3px 8px', borderRadius: '12px' 
+                            }}>
+                                PROMO
+                            </div>
+                        )}
+
+                        {/* Image Container */}
+                        <div style={{ position: 'relative', paddingTop: '100%', background: 'rgba(255,255,255,0.02)' }}>
+                            {product.image_url ? (
+                                <img 
+                                    src={product.image_url} 
+                                    alt={product.name} 
+                                    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover' }} 
+                                />
+                            ) : (
+                                <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <Package size={32} color="rgba(255,255,255,0.1)" />
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Content */}
+                        <div style={{ padding: '12px', flex: 1, display: 'flex', flexDirection: 'column' }}>
+                            <h3 style={{ margin: '0 0 4px 0', fontSize: '14px', fontWeight: '600', height: '34px', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', lineHeight: '1.2' }}>
+                                {product.name}
+                            </h3>
+                            
+                            <div style={{ marginTop: 'auto' }}>
+                                {product.is_promo && product.discount_price ? (
+                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                        <span style={{ fontSize: '10px', textDecoration: 'line-through', color: '#888' }}>Rp {product.price.toLocaleString()}</span>
+                                        <span style={{ fontWeight: 'bold', color: '#FF3B30', fontSize: '14px' }}>Rp {product.discount_price.toLocaleString()}</span>
+                                    </div>
+                                ) : (
+                                    <p style={{ fontWeight: 'bold', color: '#00E676', margin: '4px 0 0 0', fontSize: '14px' }}>Rp {product.price.toLocaleString()}</p>
+                                )}
+                                
+                                <button 
+                                    className="btn-primary" 
+                                    style={{ width: '100%', padding: '8px', marginTop: '12px', background: '#FFF', color: '#000', borderRadius: '10px', fontWeight: 'bold', fontSize: '13px' }}
+                                    onClick={() => setCheckoutProduct(product)}
+                                    disabled={loading}
+                                >
+                                    Beli
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                ))}
+            </div>
         </motion.div>
     );
 };
@@ -746,7 +1044,7 @@ const ProgressView = ({ rituals, streak, history }) => {
     );
 };
 
-const ProfilView = ({ streak, bestStreak, onReset, setActiveTab, userId }) => {
+const ProfilView = ({ streak, bestStreak, onReset, setActiveTab, userId, onCheckTracking, onShowDetail }) => {
     let level = 'Pria Pemula';
     if (streak >= 7 && streak < 21) level = 'Pria Disiplin';
     else if (streak >= 21 && streak < 60) level = 'Disiplin Elit';
@@ -826,24 +1124,47 @@ const ProfilView = ({ streak, bestStreak, onReset, setActiveTab, userId }) => {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <div onClick={() => setActiveTab('store')} className="glass-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', background: 'linear-gradient(90deg, #FFF, #E0E0E0)', cursor: 'pointer' }}>
+                <div onClick={() => {
+                    const el = document.getElementById('my-orders');
+                    if (el) el.scrollIntoView({ behavior: 'smooth' });
+                }} className="glass-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', background: 'linear-gradient(90deg, #FFF, #E0E0E0)', cursor: 'pointer' }}>
                     <span style={{ fontWeight: 'bold', color: '#000', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <ShoppingCart size={18} /> In-App Store (Restock)
+                        <ShoppingCart size={18} /> Pesanan Saya (Cek Pengiriman)
                     </span>
                     <ChevronRight size={18} color="#000" />
                 </div>
 
                 {transactions.length > 0 && (
-                    <div style={{ marginBottom: '16px', marginTop: '16px' }}>
-                        <h2 style={{ fontSize: '16px', color: '#AAA', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>Progress Pengiriman</h2>
+                    <div id="my-orders" style={{ marginBottom: '16px', marginTop: '16px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                            <h2 style={{ fontSize: '16px', color: '#AAA', textTransform: 'uppercase', letterSpacing: '1px' }}>Daftar Pesanan & Pengiriman</h2>
+                            <span style={{ fontSize: '11px', color: '#666' }}>Klik untuk detail</span>
+                        </div>
                         {transactions.map(trx => (
-                            <div key={trx.id} className="glass-card" style={{ background: 'rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px' }}>
+                            <div 
+                                key={trx.id} 
+                                onClick={() => onShowDetail(trx)}
+                                className="glass-card" 
+                                style={{ background: 'rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', cursor: 'pointer', marginBottom: '8px' }}
+                            >
                                 <div>
-                                    <div style={{ fontSize: '14px', fontWeight: 'bold' }}>{trx.id}</div>
-                                    <div style={{ fontSize: '12px', color: '#888' }}>Metode: {trx.method}</div>
+                                    <h4 style={{ margin: '0 0 4px 0', fontSize: '13px', fontWeight: 'bold' }}>{trx.id}</h4>
+                                    <p style={{ margin: 0, fontSize: '11px', color: '#888' }}>Metode: {trx.method || 'Pakasir.com'}</p>
+                                    {trx.shipping_receipt && (
+                                        <div style={{ marginTop: '8px', display: 'flex', gap: '8px' }}>
+                                            <button 
+                                                onClick={() => onCheckTracking(trx.shipping_receipt, trx.shipping_courier)}
+                                                style={{ padding: '6px 12px', background: 'rgba(0,230,118,0.1)', border: '1px solid #00E676', color: '#00E676', borderRadius: '6px', fontSize: '10px', fontWeight: 'bold', cursor: 'pointer' }}
+                                            >
+                                                Cek Resi
+                                            </button>
+                                            <div style={{ fontSize: '10px', color: '#AAA', alignSelf: 'center' }}>{trx.shipping_receipt}</div>
+                                        </div>
+                                    )}
                                 </div>
-                                <div style={{ fontSize: '12px', fontWeight: 'bold', color: trx.delivery_status === 'Delivered' ? '#00E676' : '#FFD700' }}>
-                                    ● {trx.delivery_status}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <div style={{ width: '8px', height: '8px', background: trx.delivery_status === 'Delivered' ? '#00E676' : '#FFD700', borderRadius: '50%' }}></div>
+                                    <span style={{ fontSize: '11px', fontWeight: 'bold', color: trx.delivery_status === 'Delivered' ? '#00E676' : '#FFD700' }}>{trx.delivery_status || 'Processing'}</span>
                                 </div>
                             </div>
                         ))}
@@ -908,52 +1229,61 @@ class AppErrorBoundary extends React.Component {
 
 // --- AUTHENTICATION COMPONENT ---
 const AuthView = ({ onLoginSuccess }) => {
-    const [isLogin, setIsLogin] = useState(true);
+    const [onboardingStep, setOnboardingStep] = useState('welcome'); // 'welcome', 'profile', 'rhythm', 'login'
     const [loading, setLoading] = useState(false);
-    const [formData, setFormData] = useState({ name: '', email: '', phone: '', password: '' });
+    const [formData, setFormData] = useState({ 
+        name: '', email: '', phone: '', password: '',
+        age: '', profession: '',
+        wake_up_time: '', workout_time: '', focus_work_time: '', sleep_time: ''
+    });
     const [errorMsg, setErrorMsg] = useState('');
 
-    const handleSubmit = async (e) => {
+    const handleLogin = async (e) => {
         e.preventDefault();
         setLoading(true);
         setErrorMsg('');
 
         try {
-            if (isLogin) {
-                // Proses Login
-                const { data, error } = await supabase.from('users')
-                    .select('*')
-                    .eq('email', formData.email)
-                    .eq('password', formData.password)
-                    .maybeSingle();
+            const { data, error } = await supabase.from('users')
+                .select('*')
+                .eq('email', formData.email)
+                .eq('password', formData.password)
+                .maybeSingle();
 
-                if (error || !data) throw new Error('Email atau password salah!');
-                
-                // Cek verifikasi admin (kolom phone_verified bertindak sbg indikator approval admin)
-                if (!data.phone_verified) {
-                    throw new Error('Akun Anda belum diberifikasi oleh Admin. Harap tunggu persetujuan.');
-                }
-
-                // Berhasil login
-                onLoginSuccess(data.id);
-            } else {
-                // Proses Register
-                const { data: existingUser } = await supabase.from('users').select('id').eq('email', formData.email).single();
-                if (existingUser) throw new Error('Email sudah terdaftar!');
-
-                const { error, data } = await supabase.from('users').insert([{
-                    name: formData.name,
-                    email: formData.email,
-                    phone: formData.phone,
-                    password: formData.password,
-                    phone_verified: false, // Memerlukan verifikasi admin
-                    role: 'User'
-                }]).select('*').single();
-
-                if (error) throw error;
-                alert('Pendaftaran berhasil! Akun Anda sekarang sedang menunggu "Verifikasi Admin". Anda belum bisa masuk sampai Admin menyetujui.');
-                setIsLogin(true);
+            if (error || !data) throw new Error('Email atau password salah!');
+            
+            if (!data.phone_verified) {
+                throw new Error('Akun Anda belum diberifikasi oleh Admin. Harap tunggu persetujuan.');
             }
+
+            onLoginSuccess(data);
+        } catch (err) {
+            setErrorMsg(err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleRegister = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        setErrorMsg('');
+
+        try {
+            const { data: existingUser } = await supabase.from('users').select('id').eq('email', formData.email).single();
+            if (existingUser) throw new Error('Email sudah terdaftar!');
+
+            const { error } = await supabase.from('users').insert([{
+                name: formData.name, age: parseInt(formData.age), profession: formData.profession,
+                email: formData.email, phone: formData.phone, password: formData.password,
+                wake_up_time: formData.wake_up_time, workout_time: formData.workout_time,
+                focus_work_time: formData.focus_work_time, sleep_time: formData.sleep_time,
+                phone_verified: false, role: 'User'
+            }]);
+
+            if (error) throw error;
+            alert('Pendaftaran berhasil! Akun Anda sedang menunggu verifikasi Admin agar bisa digunakan.');
+            setOnboardingStep('login');
         } catch (err) {
             setErrorMsg(err.message);
         } finally {
@@ -963,38 +1293,220 @@ const AuthView = ({ onLoginSuccess }) => {
 
     return (
         <div className="app-container" style={{ background: '#050505', color: '#FFF', minHeight: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '24px' }}>
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-card" style={{ padding: '32px 24px' }}>
-                <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-                    <h1 style={{ margin: 0, fontSize: '28px', fontWeight: '800', letterSpacing: '2px', background: 'linear-gradient(90deg, #FFFFFF 0%, #888888 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>YOUMAN</h1>
-                    <p style={{ color: '#888', marginTop: '8px', fontSize: '14px' }}>{isLogin ? 'Masuk ke Sistem Kedisiplinan' : 'Mulai Perjalanan Anda'}</p>
-                </div>
-
-                {errorMsg && (
-                    <div style={{ background: '#ef444420', border: '1px solid #ef4444', color: '#ef4444', padding: '12px', borderRadius: '8px', marginBottom: '24px', fontSize: '14px', textAlign: 'center' }}>
-                        {errorMsg}
-                    </div>
+            <AnimatePresence mode="wait">
+                {onboardingStep === 'welcome' && (
+                    <motion.div key="welcome" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.05 }} className="glass-card" style={{ padding: '48px 24px', textAlign: 'center' }}>
+                        <div style={{ width: '80px', height: '80px', background: '#FFF', color: '#000', borderRadius: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px', fontWeight: 'bold', margin: '0 auto 24px auto' }}>Y</div>
+                        <h1 style={{ margin: '0 0 12px 0', fontSize: '32px', fontWeight: '800', letterSpacing: '2px' }}>WELCOME</h1>
+                        <p style={{ color: '#888', marginBottom: '48px', fontSize: '16px', lineHeight: '1.5' }}>Optimalkan performa puncak Anda bersama YOUMAN.</p>
+                        
+                        <div style={{ display: 'grid', gap: '12px' }}>
+                            <button onClick={() => setOnboardingStep('profile')} className="btn-primary" style={{ width: '100%', fontSize: '16px', fontWeight: 'bold' }}>Mulai Perjalanan Baru</button>
+                            <button onClick={() => setOnboardingStep('login')} style={{ background: 'none', border: '1px solid rgba(255,255,255,0.1)', color: '#FFF', padding: '14px', borderRadius: '12px', cursor: 'pointer', fontSize: '14px' }}>Sudah Punya Akun</button>
+                        </div>
+                    </motion.div>
                 )}
 
-                <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    {!isLogin && (
-                        <>
-                            <input type="text" placeholder="Nama Lengkap" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} required style={{ width: '100%', padding: '14px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#FFF' }} />
-                            <input type="tel" placeholder="Nomor WhatsApp" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} required style={{ width: '100%', padding: '14px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#FFF' }} />
-                        </>
-                    )}
-                    <input type="email" placeholder="Alamat Email" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} required style={{ width: '100%', padding: '14px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#FFF' }} />
-                    <input type="password" placeholder="Password" value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} required style={{ width: '100%', padding: '14px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#FFF' }} />
+                {onboardingStep === 'profile' && (
+                    <motion.div key="profile" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }} className="glass-card" style={{ padding: '32px 24px' }}>
+                        <h2 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '8px' }}>Setup Profil</h2>
+                        <p style={{ color: '#888', marginBottom: '24px', fontSize: '14px' }}>Bantu kami mengenal Anda lebih baik.</p>
+                        <form onSubmit={(e) => { e.preventDefault(); setOnboardingStep('rhythm'); }} style={{ display: 'grid', gap: '16px' }}>
+                            <input type="text" placeholder="Nama Lengkap" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required style={{ width: '100%', padding: '14px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#FFF' }} />
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '12px' }}>
+                                <input type="number" placeholder="Usia" value={formData.age} onChange={e => setFormData({...formData, age: e.target.value})} required style={{ width: '100%', padding: '14px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#FFF' }} />
+                                <input type="text" placeholder="Profesi / Pekerjaan" value={formData.profession} onChange={e => setFormData({...formData, profession: e.target.value})} required style={{ width: '100%', padding: '14px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#FFF' }} />
+                            </div>
+                            <input type="email" placeholder="Email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} required style={{ width: '100%', padding: '14px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#FFF' }} />
+                            <input type="tel" placeholder="Nomor WhatsApp" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} required style={{ width: '100%', padding: '14px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#FFF' }} />
+                            
+                            <button type="submit" className="btn-primary" style={{ marginTop: '12px' }}>Lanjutkan</button>
+                            <button type="button" onClick={() => setOnboardingStep('welcome')} style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: '13px' }}>Kembali</button>
+                        </form>
+                    </motion.div>
+                )}
 
-                    <button type="submit" disabled={loading} className="btn-primary" style={{ marginTop: '8px' }}>
-                        {loading ? 'Memproses...' : (isLogin ? 'Masuk (Log In)' : 'Daftar Sekarang')}
-                    </button>
-                </form>
+                {onboardingStep === 'rhythm' && (
+                    <motion.div key="rhythm" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }} className="glass-card" style={{ padding: '32px 24px' }}>
+                        <h2 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '8px' }}>Ritme Harian</h2>
+                        <p style={{ color: '#888', marginBottom: '24px', fontSize: '14px' }}>Rangkai jadwal kedisiplinan Anda.</p>
+                        <form onSubmit={handleRegister} style={{ display: 'grid', gap: '16px' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                                <div>
+                                    <label style={{ fontSize: '11px', color: '#888', display: 'block', marginBottom: '6px' }}>Bangun Pagi</label>
+                                    <input type="time" value={formData.wake_up_time} onChange={e => setFormData({...formData, wake_up_time: e.target.value})} required style={{ width: '100%', padding: '12px', borderRadius: '10px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#FFF' }} />
+                                </div>
+                                <div>
+                                    <label style={{ fontSize: '11px', color: '#888', display: 'block', marginBottom: '6px' }}>Waktu Olahraga</label>
+                                    <input type="time" value={formData.workout_time} onChange={e => setFormData({...formData, workout_time: e.target.value})} required style={{ width: '100%', padding: '12px', borderRadius: '10px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#FFF' }} />
+                                </div>
+                                <div>
+                                    <label style={{ fontSize: '11px', color: '#888', display: 'block', marginBottom: '6px' }}>Kerja Fokus</label>
+                                    <input type="time" value={formData.focus_work_time} onChange={e => setFormData({...formData, focus_work_time: e.target.value})} required style={{ width: '100%', padding: '12px', borderRadius: '10px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#FFF' }} />
+                                </div>
+                                <div>
+                                    <label style={{ fontSize: '11px', color: '#888', display: 'block', marginBottom: '6px' }}>Waktu Tidur</label>
+                                    <input type="time" value={formData.sleep_time} onChange={e => setFormData({...formData, sleep_time: e.target.value})} required style={{ width: '100%', padding: '12px', borderRadius: '10px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#FFF' }} />
+                                </div>
+                            </div>
+                            <div style={{ marginTop: '8px' }}>
+                                <label style={{ fontSize: '11px', color: '#888', display: 'block', marginBottom: '6px' }}>Password Baru</label>
+                                <input type="password" placeholder="Atur password" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} required style={{ width: '100%', padding: '14px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#FFF' }} />
+                            </div>
+                            
+                            <button type="submit" disabled={loading} className="btn-primary" style={{ marginTop: '12px' }}>
+                                {loading ? 'Memproses...' : 'Daftar Sekarang'}
+                            </button>
+                            <button type="button" onClick={() => setOnboardingStep('profile')} style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: '13px' }}>Kembali</button>
+                        </form>
+                    </motion.div>
+                )}
 
-                <div style={{ textAlign: 'center', marginTop: '24px' }}>
-                    <button onClick={() => { setIsLogin(!isLogin); setErrorMsg(''); }} style={{ background: 'none', border: 'none', color: '#888', textDecoration: 'underline', cursor: 'pointer', fontSize: '14px' }}>
-                        {isLogin ? 'Belum punya akun? Daftar di sini.' : 'Sudah punya akun? Masuk di sini.'}
-                    </button>
+                {onboardingStep === 'login' && (
+                    <motion.div key="login" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.05 }} className="glass-card" style={{ padding: '32px 24px' }}>
+                        <h2 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '8px', textAlign: 'center' }}>Masuk (Log In)</h2>
+                        <p style={{ color: '#888', marginBottom: '24px', fontSize: '14px', textAlign: 'center' }}>Lanjutkan rutinitas disiplin Anda.</p>
+                        
+                        {errorMsg && (
+                            <div style={{ background: '#ef444420', border: '1px solid #ef4444', color: '#ef4444', padding: '12px', borderRadius: '8px', marginBottom: '24px', fontSize: '14px', textAlign: 'center' }}>
+                                {errorMsg}
+                            </div>
+                        )}
+
+                        <form onSubmit={handleLogin} style={{ display: 'grid', gap: '16px' }}>
+                            <input type="email" placeholder="Alamat Email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} required style={{ width: '100%', padding: '14px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#FFF' }} />
+                            <input type="password" placeholder="Password" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} required style={{ width: '100%', padding: '14px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#FFF' }} />
+                            
+                            <button type="submit" disabled={loading} className="btn-primary" style={{ marginTop: '8px' }}>
+                                {loading ? 'Memproses...' : 'Masuk Sekarang'}
+                            </button>
+                            
+                            <button type="button" onClick={() => setOnboardingStep('welcome')} style={{ background: 'none', border: 'none', color: '#888', textDecoration: 'underline', cursor: 'pointer', fontSize: '13px' }}>Ganti ke Pendaftaran</button>
+                        </form>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
+    );
+};
+
+const TransactionDetailModal = ({ isOpen, onClose, trx, onCheckTracking }) => {
+    if (!isOpen || !trx) return null;
+    const items = trx.items || [];
+    
+    return (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.95)', zIndex: 4000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+            <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="glass-card" style={{ width: '100%', maxWidth: '450px', padding: '24px', maxHeight: '90vh', overflowY: 'auto' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                    <div>
+                        <h3 style={{ fontSize: '18px', fontWeight: 'bold', margin: 0 }}>Detail Pesanan</h3>
+                        <div style={{ fontSize: '12px', color: '#888', marginTop: '4px' }}>ID: {trx.id}</div>
+                    </div>
+                    <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#FFF' }}><X size={24} /></button>
                 </div>
+
+                <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '12px', padding: '16px', marginBottom: '24px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px', fontSize: '13px' }}>
+                        <span style={{ color: '#888' }}>Status Pembayaran</span>
+                        <span style={{ fontWeight: 'bold', color: trx.status === 'Success' ? '#00E676' : '#FFD700' }}>{trx.status}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px', fontSize: '13px' }}>
+                        <span style={{ color: '#888' }}>Status Pengiriman</span>
+                        <span style={{ fontWeight: 'bold', color: '#FFF' }}>{trx.delivery_status}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                        <span style={{ color: '#888' }}>Metode</span>
+                        <span style={{ fontWeight: 'bold' }}>{trx.method}</span>
+                    </div>
+                </div>
+
+                <div style={{ marginBottom: '24px' }}>
+                    <h4 style={{ fontSize: '14px', color: '#AAA', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Produk Diorder</h4>
+                    {items.length > 0 ? items.map((item, idx) => (
+                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <div style={{ width: '40px', height: '40px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <Package size={20} color="#666" />
+                                </div>
+                                <div>
+                                    <div style={{ fontSize: '14px', fontWeight: 'bold' }}>{item.name}</div>
+                                    <div style={{ fontSize: '11px', color: '#666' }}>x{item.quantity}</div>
+                                </div>
+                            </div>
+                            <div style={{ fontSize: '14px', fontWeight: '600' }}>Rp {item.price?.toLocaleString()}</div>
+                        </div>
+                    )) : (
+                        <div style={{ padding: '12px', textAlign: 'center', color: '#444', fontSize: '13px' }}>Data produk tidak tersedia</div>
+                    )}
+                    
+                    <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', marginTop: '16px', paddingTop: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontWeight: 'bold' }}>Total Bayar</span>
+                        <span style={{ fontSize: '18px', fontWeight: '900', color: '#00E676' }}>Rp {trx.amount?.toLocaleString()}</span>
+                    </div>
+                </div>
+
+                {trx.shipping_receipt && (
+                    <div style={{ background: 'rgba(0, 230, 118, 0.05)', border: '1px solid rgba(0, 230, 118, 0.1)', borderRadius: '12px', padding: '16px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                            <span style={{ fontSize: '13px', fontWeight: 'bold' }}>No. Resi ({trx.shipping_courier?.toUpperCase()})</span>
+                            <span style={{ fontSize: '13px', color: '#00E676', fontWeight: '900' }}>{trx.shipping_receipt}</span>
+                        </div>
+                        <button 
+                            onClick={() => { onClose(); onCheckTracking(trx.shipping_receipt, trx.shipping_courier); }}
+                            style={{ width: '100%', padding: '12px', background: '#00E676', color: '#000', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}
+                        >
+                            Lacak Via RajaOngkir
+                        </button>
+                    </div>
+                )}
+            </motion.div>
+        </div>
+    );
+};
+
+const TrackingModal = ({ isOpen, onClose, info, loading, resi, courier }) => {
+    if (!isOpen) return null;
+    return (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.9)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="glass-card" style={{ width: '100%', maxWidth: '400px', padding: '24px', maxHeight: '80vh', overflowY: 'auto' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                    <h3 style={{ fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}><Truck size={20} /> Lacak Pengiriman</h3>
+                    <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#FFF' }}><X size={24} /></button>
+                </div>
+
+                <div style={{ marginBottom: '24px', padding: '12px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px' }}>
+                    <div style={{ fontSize: '12px', color: '#888' }}>Nomor Resi ({courier?.toUpperCase()})</div>
+                    <div style={{ fontSize: '16px', fontWeight: 'bold', letterSpacing: '1px' }}>{resi}</div>
+                </div>
+
+                {loading ? (
+                    <div style={{ textAlign: 'center', padding: '40px' }}>
+                        <div className="animate-spin" style={{ width: '32px', height: '32px', border: '3px solid rgba(255,255,255,0.1)', borderTopColor: '#00E676', borderRadius: '50%', margin: '0 auto 16px' }}></div>
+                        <p style={{ color: '#888' }}>Mencari data di RajaOngkir...</p>
+                    </div>
+                ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        <div style={{ borderLeft: '2px solid #00E676', paddingLeft: '16px', position: 'relative' }}>
+                            <div style={{ position: 'absolute', left: '-6px', top: 0, width: '10px', height: '10px', background: '#00E676', borderRadius: '50%' }}></div>
+                            <div style={{ fontWeight: 'bold', fontSize: '14px', marginBottom: '4px' }}>Pesanan Sedang Diproses</div>
+                            <div style={{ fontSize: '11px', color: '#666' }}>Sistem RajaOngkir sedang mengupdate data perjalanan paket Anda.</div>
+                        </div>
+                        <div style={{ borderLeft: '2px solid rgba(255,255,255,0.1)', paddingLeft: '16px', minHeight: '40px' }}>
+                            <div style={{ color: '#888', fontSize: '14px' }}>Menunggu Update Kurir...</div>
+                        </div>
+                        
+                        <div style={{ marginTop: '12px' }}>
+                            <a 
+                                href={`https://cekresi.com/?noresi=${resi}`} 
+                                target="_blank" 
+                                rel="noreferrer"
+                                style={{ display: 'block', padding: '14px', background: 'rgba(255,255,255,0.05)', borderRadius: '12px', textAlign: 'center', textDecoration: 'none', color: '#FFF', fontSize: '13px', border: '1px solid rgba(255,255,255,0.1)' }}
+                            >
+                                Lihat Tracking Lengkap (External)
+                            </a>
+                        </div>
+                    </div>
+                )}
             </motion.div>
         </div>
     );
@@ -1003,9 +1515,12 @@ const AuthView = ({ onLoginSuccess }) => {
 export default function App() {
     const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('youman_is_logged_in'));
 
-    const handleLoginSuccess = (userId) => {
+    const handleLoginSuccess = (userData) => {
         localStorage.setItem('youman_is_logged_in', 'true');
-        localStorage.setItem('youman_user_id', userId); // Force use verified user ID
+        localStorage.setItem('youman_user_id', userData.id);
+        localStorage.setItem('youman_wake_up_time', userData.wake_up_time || '');
+        localStorage.setItem('youman_workout_time', userData.workout_time || '');
+        localStorage.setItem('youman_sleep_time', userData.sleep_time || '');
         setIsLoggedIn(true);
     };
 
@@ -1013,30 +1528,175 @@ export default function App() {
         return <AuthView onLoginSuccess={handleLoginSuccess} />;
     }
 
+    const [trackingResi, setTrackingResi] = useState('');
+    const [trackingCourier, setTrackingCourier] = useState('');
+    const [isTrackingModalOpen, setIsTrackingModalOpen] = useState(false);
+    const [trackingLoading, setTrackingLoading] = useState(false);
+    const [trackingInfo, setTrackingInfo] = useState(null);
+
+    const handleCheckTracking = async (resi, courier) => {
+        setTrackingResi(resi);
+        setTrackingCourier(courier);
+        setIsTrackingModalOpen(true);
+        setTrackingLoading(true);
+        
+        try {
+            // Simulasi fetch RajaOngkir
+            // Sebenarnya kita butuh API Key dan Proxy agar CORS tidak terblokir
+            setTimeout(() => {
+                setTrackingLoading(false);
+            }, 1500);
+        } catch(e) {
+            setTrackingLoading(false);
+        }
+    };
+
+    const [selectedTrx, setSelectedTrx] = useState(null);
+    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+
+    const handleShowDetail = (trx) => {
+        setSelectedTrx(trx);
+        setIsDetailModalOpen(true);
+    };
+
     return (
         <AppErrorBoundary>
-            <AppContent />
+            <AppContent onCheckTracking={handleCheckTracking} onShowDetail={handleShowDetail} />
+            <TransactionDetailModal 
+                isOpen={isDetailModalOpen} 
+                onClose={() => setIsDetailModalOpen(false)} 
+                trx={selectedTrx} 
+                onCheckTracking={handleCheckTracking}
+            />
+            <TrackingModal 
+                isOpen={isTrackingModalOpen} 
+                onClose={() => setIsTrackingModalOpen(false)} 
+                info={trackingInfo} 
+                loading={trackingLoading} 
+                resi={trackingResi} 
+                courier={trackingCourier}
+            />
         </AppErrorBoundary>
     );
 }
 
-function AppContent() {
+function AppContent({ onCheckTracking, onShowDetail }) {
     const [activeTab, setActiveTab] = useState('home');
     const [streak, setStreak] = useState(getStreak());
     const [bestStreak, setBestStreak] = useState(() => parseInt(localStorage.getItem('youman_best_streak') || "0"));
     const [history, setHistory] = useState(getHistory());
     const [rituals, setRituals] = useState(() => {
         const saved = getRituals();
-        if (!saved || saved.length === 0) {
-            return [
-                { id: 1, title: 'Bangun Pagi (Sebelum 06:00)', completed: false },
-                { id: 2, title: 'Olahraga (Min 30 Menit)', completed: false },
-                { id: 3, title: 'Minum Youman', completed: false },
-                { id: 4, title: 'Fokus Kerja (Deep Work 2 Jam)', completed: false }
-            ];
-        }
-        return saved;
+        const defaults = [
+            { id: 1, title: 'Bangun Pagi', subtitle: 'Mulai hari dengan disiplin penuh', time: localStorage.getItem('youman_wake_up_time') || '05:00', completed: false },
+            { id: 2, title: 'Olahraga', subtitle: 'Bangun otot dan bakar lemak harian', time: localStorage.getItem('youman_workout_time') || '06:00', completed: false },
+            { id: 3, title: 'Minum Youman', subtitle: 'Optimalkan testosteron harian Anda', time: '08:00', completed: false },
+            { id: 4, title: 'Fokus Kerja', subtitle: 'Deep Work selama 2 jam produktif', time: '09:00', completed: false },
+            { id: 5, title: 'Waktunya Tidur', subtitle: 'Istirahat total untuk recovery hormon', time: localStorage.getItem('youman_sleep_time') || '22:00', completed: false }
+        ];
+
+        if (!saved || saved.length === 0) return defaults;
+        
+        // MIGRATION: Ensure old data has new fields
+        return saved.map(item => {
+            const def = defaults.find(d => d.title === item.title || item.title.includes(d.title));
+            return {
+                ...item,
+                subtitle: item.subtitle || (def ? def.subtitle : 'Atur deskripsi ritual ini'),
+                time: item.time || (def ? def.time : '12:00')
+            };
+        });
     });
+
+    const [isAlarmActive, setIsAlarmActive] = useState(() => localStorage.getItem('youman_alarm_active') === 'true');
+
+    useEffect(() => {
+        // Register Service Worker for PWA/Background support
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js').then(reg => {
+                console.log('SW Registered:', reg.scope);
+            }).catch(err => console.log('SW failed:', err));
+        }
+
+        // Initialize OneSignal
+        window.OneSignalDeferred = window.OneSignalDeferred || [];
+        OneSignalDeferred.push(async function(OneSignal) {
+            await OneSignal.init({
+                appId: import.meta.env.VITE_ONESIGNAL_APP_ID,
+                allowLocalhostAsSecureOrigin: true, // For development
+            });
+            // Link user ID to OneSignal for targeted push
+            const userId = localStorage.getItem('youman_user_id');
+            if (userId) {
+                OneSignal.setExternalUserId(userId);
+            }
+        });
+
+        // Auto request permission
+        if ('Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission();
+        }
+
+        localStorage.setItem('youman_alarm_active', isAlarmActive.toString());
+        if (isAlarmActive && navigator.vibrate) {
+            const interval = setInterval(() => {
+                navigator.vibrate([200, 100, 200]);
+            }, 2000);
+            return () => clearInterval(interval);
+        }
+    }, [isAlarmActive]);
+
+    const sendSystemNotification = (title, body) => {
+        if ('Notification' in window && Notification.permission === 'granted') {
+            if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+                navigator.serviceWorker.ready.then(reg => {
+                    reg.showNotification(title, {
+                        body: body,
+                        icon: 'https://cdn-icons-png.flaticon.com/512/3039/3039430.png',
+                        vibrate: [200, 100, 200, 100, 200],
+                        requireInteraction: true,
+                        tag: 'youman-alarm'
+                    });
+                });
+            } else {
+                new Notification(title, { body, icon: 'https://cdn-icons-png.flaticon.com/512/3039/3039430.png' });
+            }
+        }
+    };
+
+    // Background Alarm Checker
+    useEffect(() => {
+        const checkScheduledTimes = () => {
+            const now = new Date();
+            const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+            
+            // Periksa setiap ritual yang belum selesai
+            rituals.forEach(ritual => {
+                const lastNotifiedKey = `notified_${ritual.id}_${now.getDate()}_${now.getHours()}_${now.getMinutes()}`;
+                
+                if (ritual.time === timeStr && !ritual.completed && !localStorage.getItem(lastNotifiedKey)) {
+                    // Kirim Notifikasi Sistem
+                    sendSystemNotification(
+                        `Waktunya ${ritual.title.toUpperCase()}!`, 
+                        ritual.subtitle || 'Laksanakan protokol kedisiplinan Anda sekarang untuk menjaga performa puncak.'
+                    );
+
+                    // Tandai sudah dinotifikasi untuk menit ini agar tidak double
+                    localStorage.setItem(lastNotifiedKey, 'true');
+                    
+                    // Bunyi alarm pendek jika aplikasi sedang terbuka
+                    try { 
+                        const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+                        audio.volume = 0.5;
+                        audio.play(); 
+                    } catch(e) { console.log("Audio play failed", e); }
+                }
+            });
+        };
+
+        const interval = setInterval(checkScheduledTimes, 60000); // Check every minute
+        return () => clearInterval(interval);
+    }, [rituals]);
 
     // Real-time Supabase Data Syncing Hook
     useEffect(() => {
@@ -1079,6 +1739,11 @@ function AppContent() {
     useEffect(() => {
         saveRituals(rituals);
 
+        // Turn off alarm if the drinking ritual is completed manually
+        if (rituals.find(r => r.title === 'Minum Youman')?.completed) {
+            setIsAlarmActive(false);
+        }
+
         if (rituals.length > 0) {
             const allCompleted = rituals.every(r => r.completed);
             const today = new Date().toDateString();
@@ -1109,6 +1774,23 @@ function AppContent() {
         ));
     };
 
+    const toggleAlarm = (forceValue) => {
+        const newValue = forceValue !== undefined ? forceValue : !isAlarmActive;
+        setIsAlarmActive(newValue);
+        
+        if (newValue) {
+            sendSystemNotification('Alarm Aktif', 'Notifikasi sistem akan muncul saat jadwal tiba.');
+        }
+
+        // Automate ritual completion when alarm is turned OFF
+        if (!newValue) {
+            const drinkingRitual = rituals.find(r => r.title === 'Minum Youman');
+            if (drinkingRitual && !drinkingRitual.completed) {
+                toggleRitual(drinkingRitual.id);
+            }
+        }
+    };
+
     const handleResetData = () => {
         if (window.confirm('Apakah Anda yakin ingin menghapus semua data pribadi? Tindakan ini tidak dapat dibatalkan.')) {
             clearAllData();
@@ -1116,10 +1798,11 @@ function AppContent() {
             setBestStreak(0);
             setHistory([]);
             setRituals([
-                { id: 1, title: 'Bangun Pagi (Sebelum 06:00)', completed: false },
-                { id: 2, title: 'Olahraga (Min 30 Menit)', completed: false },
-                { id: 3, title: 'Minum Youman', completed: false },
-                { id: 4, title: 'Fokus Kerja (Deep Work 2 Jam)', completed: false }
+                { id: 1, title: 'Bangun Pagi', subtitle: 'Mulai hari dengan disiplin penuh', time: localStorage.getItem('youman_wake_up_time') || '05:00', completed: false },
+                { id: 2, title: 'Olahraga', subtitle: 'Bangun otot dan bakar lemak harian', time: localStorage.getItem('youman_workout_time') || '06:00', completed: false },
+                { id: 3, title: 'Minum Youman', subtitle: 'Optimalkan testosteron harian Anda', time: '08:00', completed: false },
+                { id: 4, title: 'Fokus Kerja', subtitle: 'Deep Work selama 2 jam produktif', time: '09:00', completed: false },
+                { id: 5, title: 'Waktunya Tidur', subtitle: 'Istirahat total untuk recovery hormon', time: localStorage.getItem('youman_sleep_time') || '22:00', completed: false }
             ]);
             setActiveTab('home');
             window.location.reload();
@@ -1141,6 +1824,8 @@ function AppContent() {
                             rituals={rituals}
                             toggleRitual={toggleRitual}
                             streak={streak}
+                            isAlarmActive={isAlarmActive}
+                            toggleAlarm={toggleAlarm}
                         />
                     )}
                     {activeTab === 'protocol' && (
@@ -1151,7 +1836,7 @@ function AppContent() {
                         />
                     )}
                     {activeTab === 'knowledge' && (
-                        <KnowledgeView key="knowledge" />
+                        <KnowledgeView key="knowledge" streak={streak} />
                     )}
                     {activeTab === 'store' && (
                         <StoreView 
@@ -1182,6 +1867,8 @@ function AppContent() {
                             onReset={handleResetData}
                             setActiveTab={setActiveTab}
                             userId={getUserId()}
+                            onCheckTracking={onCheckTracking}
+                            onShowDetail={onShowDetail}
                         />
                     )}
                 </AnimatePresence>

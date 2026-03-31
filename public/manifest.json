@@ -1,0 +1,20 @@
+{
+  "name": "YOUMAN App",
+  "short_name": "YOUMAN",
+  "start_url": "/mobile",
+  "display": "standalone",
+  "background_color": "#0A0A0A",
+  "theme_color": "#0A0A0A",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/3039/3039430.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/3039/3039430.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

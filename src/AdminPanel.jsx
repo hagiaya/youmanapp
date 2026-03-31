@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
     LayoutDashboard, Users, CreditCard, Package, Search, Bell,
     Edit, Trash2, CheckCircle, Clock, Truck, Plus, X, ArrowUpRight, ArrowDownRight,
-    LogOut, MoreHorizontal, UserCheck, UserX, Loader, AlertTriangle, Settings, QrCode as QrIcon
+    LogOut, MoreHorizontal, UserCheck, UserX, Loader, AlertTriangle, Settings, QrCode as QrIcon, BookOpen
 } from 'lucide-react';
 import {
     AreaChart, Area, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer
@@ -10,6 +10,32 @@ import {
 import { supabase } from './utils/supabase';
 
 // REMOVED INITIAL MOCK DATA - ONLY USING REAL SUPABASE DATA
+
+// --- CLOUDINARY CONFIG ---
+const CLOUDINARY_CONFIG = {
+    cloudName: import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'dxn7n2jux', 
+    uploadPreset: import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'youman_app',
+};
+
+const openCloudinaryWidget = (onSuccess) => {
+    if (window.cloudinary) {
+        const widget = window.cloudinary.createUploadWidget({
+            cloudName: CLOUDINARY_CONFIG.cloudName,
+            uploadPreset: CLOUDINARY_CONFIG.uploadPreset,
+            folder: 'youman_products',
+            clientAllowedFormats: ['jpeg', 'png', 'webp', 'jpg'],
+            maxFileSize: 2000000, // 2MB max
+            multiple: false
+        }, (error, result) => {
+            if (!error && result && result.event === 'success') {
+                onSuccess(result.info.secure_url);
+            }
+        });
+        widget.open();
+    } else {
+        alert('Cloudinary Widget SDK belum termuat. Mohon tunggu sejenak atau refresh halaman.');
+    }
+};
 
 // --- TOAST COMPONENT ---
 const Toast = ({ message, type, onClose }) => (
@@ -230,9 +256,51 @@ const UsersView = ({ showToast }) => {
 
     const fetchUsers = async () => {
         try {
-            const { data, error } = await supabase.from('users').select('*').order('created_at', { ascending: false });
-            if (error) throw error;
-            setUsers(data && data.length > 0 ? data : []);
+            const { data: usersData, error: uError } = await supabase.from('users').select('*').order('created_at', { ascending: false });
+            if (uError) throw uError;
+            
+            const { data: streaksData } = await supabase.from('user_streaks').select('*');
+            const { data: trxData } = await supabase.from('transactions').select('*');
+            const { data: historyData } = await supabase.from('user_history').select('*').eq('date', new Date().toDateString());
+            
+            const combined = (usersData || []).map(u => {
+                const streak = streaksData ? streaksData.find(s => s.user_id === u.id) : null;
+                const consistencyDays = streak ? streak.current_streak : 0;
+                
+                const userTrx = trxData ? trxData.filter(t => t.user_id === u.id || t.user_name === u.name) : [];
+                const totalOrder = userTrx.length;
+                const totalSpent = userTrx.filter(t => t.status === 'Success').reduce((sum, item) => sum + item.amount, 0);
+
+                const historyToday = historyData ? historyData.find(h => h.user_id === u.id) : null;
+                const dailyScore = historyToday ? historyToday.percentage : 0;
+                let testosteronLabel = 'RENDAH';
+                if (dailyScore > 70) testosteronLabel = 'OPTIMAL';
+                else if (dailyScore > 40) testosteronLabel = 'CUKUP';
+
+                let level = 'Level 1 – THE SPECTATOR';
+                if (consistencyDays >= 30 && consistencyDays < 90) level = 'Level 2 – THE RECRUIT';
+                else if (consistencyDays >= 90 && consistencyDays < 180) level = 'Level 3 – THE OUTLIER';
+                else if (consistencyDays >= 180 && consistencyDays < 365) level = 'Level 4 – THE ENFORCER';
+                else if (consistencyDays >= 365) level = 'Level 5 – THE ARCHITECT';
+
+                const lastLogStr = u.updated_at || u.created_at;
+                const lastLog = new Date(lastLogStr);
+                const isAktif = (new Date() - lastLog) < (3 * 24 * 60 * 60 * 1000); // 3 hari terakhir
+                
+                return {
+                    ...u,
+                    consistencyDays,
+                    level,
+                    isAktif,
+                    testosteronLabel,
+                    dailyScore,
+                    totalOrder,
+                    totalSpent,
+                    lastOpen: lastLogStr ? lastLog.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Belum pernah'
+                };
+            });
+
+            setUsers(combined);
         } catch (error) {
             console.error('Error fetching users:', error);
             setUsers([]);
@@ -339,29 +407,64 @@ const UsersView = ({ showToast }) => {
                     <table className="admin-table">
                         <thead>
                             <tr>
-                                <th>Nama Lengkap</th>
-                                <th>Email</th>
-                                <th>No. WhatsApp</th>
-                                <th>Verifikasi HP</th>
-                                <th>Role</th>
+                                <th>Nama / Role</th>
+                                <th>Kontak</th>
+                                <th>Status Aktif</th>
+                                <th>Testosteron Score</th>
+                                <th>Level & Progress</th>
+                                <th>Riwayat Belanja</th>
+                                <th>Terakhir Dibuka</th>
                                 <th>Aksi</th>
                             </tr>
                         </thead>
                         <tbody>
                             {isLoading ? (
-                                <tr><td colSpan="6" style={{ textAlign: 'center', padding: '32px' }}><Loader className="animate-spin" /> Memuat data...</td></tr>
+                                <tr><td colSpan="8" style={{ textAlign: 'center', padding: '32px' }}><Loader className="animate-spin" /> Memuat data...</td></tr>
                             ) : filteredUsers.length > 0 ? filteredUsers.map(user => (
                                 <tr key={user.id}>
-                                    <td style={{ fontWeight: 500 }}>{user.name}</td>
-                                    <td>{user.email}</td>
-                                    <td>{user.phone}</td>
+                                    <td style={{ fontWeight: 500 }}>
+                                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                            <span>{user.name}</span>
+                                            <span style={{ fontSize: '11px', color: 'var(--admin-text-muted)', marginTop: '2px' }}>Role: {user.role}</span>
+                                        </div>
+                                    </td>
                                     <td>
-                                        {user.phone_verified ?
-                                            <span className="admin-badge badge-success"><UserCheck size={14} style={{ marginRight: '4px' }} /> Terverifikasi</span> :
-                                            <span className="admin-badge badge-warning"><UserX size={14} style={{ marginRight: '4px' }} /> Belum</span>
+                                        <div style={{ display: 'flex', flexDirection: 'column', fontSize: '12px' }}>
+                                            <span>{user.email}</span>
+                                            <span style={{ color: 'var(--admin-text-muted)', marginTop: '2px' }}>{user.phone}</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        {user.isAktif ?
+                                            <span className="admin-badge badge-success" style={{ backgroundColor: '#d1fae5', color: '#065f46' }}>Aktif</span> :
+                                            <span className="admin-badge badge-gray" style={{ backgroundColor: '#f1f5f9', color: '#64748b' }}>Pasif</span>
                                         }
                                     </td>
-                                    <td><span className={`admin-badge ${user.role === 'Admin' ? 'badge-primary' : 'badge-gray'}`}>{user.role}</span></td>
+                                    <td>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                            <span style={{ fontSize: '11px', fontWeight: 'bold', display: 'inline-block', width: 'max-content', padding: '4px 8px', borderRadius: '12px', background: user.dailyScore >= 71 ? '#d1fae5' : (user.dailyScore > 40 ? '#fef3c7' : '#fee2e2'), color: user.dailyScore >= 71 ? '#065f46' : (user.dailyScore > 40 ? '#92400e' : '#b91c1c') }}>
+                                                {user.testosteronLabel}
+                                            </span>
+                                            <span style={{ fontSize: '11px', color: 'var(--admin-text-muted)' }}>Poin: {user.dailyScore}/100</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                            <span className="admin-badge badge-primary" style={{ fontSize: '11px', display: 'inline-block', width: 'max-content' }}>
+                                                {user.level.split(' – ')[1]}
+                                            </span>
+                                            <span style={{ fontSize: '12px', fontWeight: 'bold' }}>{user.consistencyDays} Hari</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                            <span style={{ fontSize: '12px', fontWeight: 'bold' }}>{user.totalOrder} Pesanan</span>
+                                            <span style={{ fontSize: '11px', color: 'var(--admin-text-muted)' }}>Rp {user.totalSpent.toLocaleString()}</span>
+                                        </div>
+                                    </td>
+                                    <td style={{ fontSize: '12px', color: 'var(--admin-text-muted)' }}>
+                                        {user.lastOpen}
+                                    </td>
                                     <td>
                                         <div style={{ display: 'flex', gap: '8px' }}>
                                             <button className="admin-btn admin-btn-outline" style={{ padding: '6px' }} title={user.phone_verified ? "Batalkan Verifikasi" : "Verifikasi (Approve)"} onClick={() => handleVerify(user)}>
@@ -378,7 +481,7 @@ const UsersView = ({ showToast }) => {
                                 </tr>
                             )) : (
                                 <tr>
-                                    <td colSpan="6" style={{ textAlign: 'center', padding: '32px' }}>Tidak ada pengguna ditemukan.</td>
+                                    <td colSpan="8" style={{ textAlign: 'center', padding: '32px' }}>Tidak ada pengguna ditemukan.</td>
                                 </tr>
                             )}
                         </tbody>
@@ -435,7 +538,7 @@ const ProductsView = ({ products, setProducts, showToast }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingId, setEditingId] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
-    const [formData, setFormData] = useState({ name: '', price: '', stock: '', status: 'Active' });
+    const [formData, setFormData] = useState({ name: '', price: '', stock: '', status: 'Active', image_url: '', banner_url: '', is_promo: false, discount_price: '' });
 
     const filteredProducts = products.filter(p => p.name?.toLowerCase().includes(searchTerm.toLowerCase()));
 
@@ -446,7 +549,8 @@ const ProductsView = ({ products, setProducts, showToast }) => {
         }
 
         const newProdData = {
-            name: formData.name, price: Number(formData.price), stock: Number(formData.stock), status: formData.stock <= 0 ? 'Out of Stock' : formData.status
+            name: formData.name, price: Number(formData.price), stock: Number(formData.stock), status: formData.stock <= 0 ? 'Out of Stock' : formData.status,
+            image_url: formData.image_url, banner_url: formData.banner_url, is_promo: formData.is_promo, discount_price: formData.is_promo ? Number(formData.discount_price) : null
         };
 
         try {
@@ -467,13 +571,13 @@ const ProductsView = ({ products, setProducts, showToast }) => {
             showToast('Gagal menyimpan produk', 'error');
         }
 
-        setFormData({ name: '', price: '', stock: '', status: 'Active' });
+        setFormData({ name: '', price: '', stock: '', status: 'Active', image_url: '', banner_url: '', is_promo: false, discount_price: '' });
         setEditingId(null);
         setIsModalOpen(false);
     };
 
     const handleEdit = (prod) => {
-        setFormData({ name: prod.name, price: prod.price, stock: prod.stock, status: prod.status });
+        setFormData({ name: prod.name, price: prod.price, stock: prod.stock, status: prod.status, image_url: prod.image_url || '', banner_url: prod.banner_url || '', is_promo: prod.is_promo || false, discount_price: prod.discount_price || '' });
         setEditingId(prod.id);
         setIsModalOpen(true);
     };
@@ -508,7 +612,7 @@ const ProductsView = ({ products, setProducts, showToast }) => {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                 <h1 className="admin-page-title" style={{ margin: 0 }}>Manajemen Produk</h1>
                 <button className="admin-btn admin-btn-primary" onClick={() => {
-                    setFormData({ name: '', price: '', stock: '', status: 'Active' });
+                    setFormData({ name: '', price: '', stock: '', status: 'Active', image_url: '', banner_url: '', is_promo: false, discount_price: '' });
                     setEditingId(null);
                     setIsModalOpen(true);
                 }}>
@@ -545,7 +649,16 @@ const ProductsView = ({ products, setProducts, showToast }) => {
                                 <tr key={prod.id || idx}>
                                     <td style={{ color: 'var(--admin-text-muted)', fontSize: '11px', maxWidth: '80px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{prod.id}</td>
                                     <td style={{ fontWeight: 500 }}>{prod.name}</td>
-                                    <td style={{ fontWeight: 600 }}>Rp {prod.price.toLocaleString()}</td>
+                                    <td style={{ fontWeight: 600 }}>
+                                        {prod.is_promo && prod.discount_price ? (
+                                            <div>
+                                                <span style={{ textDecoration: 'line-through', color: '#888', fontSize: '12px', marginRight: '8px' }}>Rp {prod.price.toLocaleString()}</span>
+                                                <span style={{ color: '#ef4444' }}>Rp {prod.discount_price.toLocaleString()}</span>
+                                            </div>
+                                        ) : (
+                                            `Rp ${prod.price.toLocaleString()}`
+                                        )}
+                                    </td>
                                     <td>{prod.stock} unit</td>
                                     <td>
                                         <span className={`admin-badge ${prod.status === 'Active' ? 'badge-success' : 'badge-danger'}`} style={{ backgroundColor: prod.status === 'Active' ? '#d1fae5' : '#fee2e2', color: prod.status === 'Active' ? '#065f46' : '#b91c1c' }}>
@@ -606,6 +719,62 @@ const ProductsView = ({ products, setProducts, showToast }) => {
                                     <option value="Out of Stock">Out of Stock</option>
                                 </select>
                             </div>
+                            <div className="admin-form-group">
+                                <label>Foto Produk (Main)</label>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '8px' }}>
+                                    {formData.image_url ? (
+                                        <div style={{ position: 'relative' }}>
+                                            <img src={formData.image_url} alt="Preview" style={{ width: '60px', height: '60px', borderRadius: '8px', objectFit: 'cover', border: '1px solid #e2e8f0' }} />
+                                            <button 
+                                                onClick={() => setFormData({ ...formData, image_url: '' })}
+                                                style={{ position: 'absolute', top: '-8px', right: '-8px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '50%', width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                                            >
+                                                <X size={12} />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div style={{ width: '60px', height: '60px', borderRadius: '8px', border: '2px dashed #cbd5e1', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#cbd5e1' }}>
+                                            <Package size={24} />
+                                        </div>
+                                    )}
+                                    <button className="admin-btn admin-btn-outline" style={{ height: 'max-content' }} onClick={() => openCloudinaryWidget(url => setFormData({ ...formData, image_url: url }))}>
+                                        {formData.image_url ? 'Ubah Gambar' : 'Upload dari Perangkat'}
+                                    </button>
+                                </div>
+                            </div>
+                            <div className="admin-form-group">
+                                <label>Banner Promo (Opsional)</label>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '8px' }}>
+                                    {formData.banner_url ? (
+                                        <div style={{ position: 'relative' }}>
+                                            <img src={formData.banner_url} alt="Banner Preview" style={{ width: '120px', height: '60px', borderRadius: '8px', objectFit: 'cover', border: '1px solid #e2e8f0' }} />
+                                            <button 
+                                                onClick={() => setFormData({ ...formData, banner_url: '' })}
+                                                style={{ position: 'absolute', top: '-8px', right: '-8px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '50%', width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                                            >
+                                                <X size={12} />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div style={{ width: '120px', height: '60px', borderRadius: '8px', border: '2px dashed #cbd5e1', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#cbd5e1' }}>
+                                            <BookOpen size={24} />
+                                        </div>
+                                    )}
+                                    <button className="admin-btn admin-btn-outline" style={{ height: 'max-content' }} onClick={() => openCloudinaryWidget(url => setFormData({ ...formData, banner_url: url }))}>
+                                        {formData.banner_url ? 'Ubah Banner' : 'Upload Banner'}
+                                    </button>
+                                </div>
+                            </div>
+                            <div className="admin-form-group" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <input type="checkbox" id="is_promo" checked={formData.is_promo} onChange={e => setFormData({ ...formData, is_promo: e.target.checked })} />
+                                <label htmlFor="is_promo" style={{ margin: 0 }}>Aktifkan Promo Diskon</label>
+                            </div>
+                            {formData.is_promo && (
+                                <div className="admin-form-group">
+                                    <label>Harga Potongan (Rp)</label>
+                                    <input type="number" className="admin-form-control" placeholder="Harga setelah diskon" value={formData.discount_price} onChange={e => setFormData({ ...formData, discount_price: e.target.value })} />
+                                </div>
+                            )}
                         </div>
                         <div className="admin-modal-footer">
                             <button className="admin-btn admin-btn-outline" onClick={() => setIsModalOpen(false)}>Batal</button>
@@ -624,7 +793,7 @@ const TransactionsView = ({ showToast }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingId, setEditingId] = useState(null);
-    const [formData, setFormData] = useState({ user_name: '', amount: '', status: 'Pending', delivery_status: 'Processing', method: 'Manual' });
+    const [formData, setFormData] = useState({ user_name: '', amount: '', status: 'Pending', delivery_status: 'Processing', method: 'Manual', shipping_receipt: '', shipping_courier: 'jne', items: [] });
 
     useEffect(() => {
         fetchTransactions();
@@ -659,7 +828,9 @@ const TransactionsView = ({ showToast }) => {
             amount: Number(formData.amount),
             status: formData.status,
             delivery_status: formData.delivery_status,
-            method: formData.method
+            method: formData.method,
+            shipping_receipt: formData.shipping_receipt,
+            shipping_courier: formData.shipping_courier
         };
 
         try {
@@ -679,13 +850,22 @@ const TransactionsView = ({ showToast }) => {
             showToast('Gagal menyimpan transaksi', 'error');
         }
 
-        setFormData({ user_name: '', amount: '', status: 'Pending', delivery_status: 'Processing', method: 'Manual' });
+        setFormData({ user_name: '', amount: '', status: 'Pending', delivery_status: 'Processing', method: 'Manual', shipping_receipt: '', shipping_courier: 'jne', items: [] });
         setEditingId(null);
         setIsModalOpen(false);
     };
 
     const handleEdit = (trx) => {
-        setFormData({ user_name: trx.user_name, amount: trx.amount, status: trx.status, delivery_status: trx.delivery_status, method: trx.method || 'Manual' });
+        setFormData({ 
+            user_name: trx.user_name, 
+            amount: trx.amount, 
+            status: trx.status, 
+            delivery_status: trx.delivery_status, 
+            method: trx.method || 'Manual',
+            shipping_receipt: trx.shipping_receipt || '',
+            shipping_courier: trx.shipping_courier || 'jne',
+            items: trx.items || []
+        });
         setEditingId(trx.id);
         setIsModalOpen(true);
     };
@@ -710,7 +890,7 @@ const TransactionsView = ({ showToast }) => {
                 <div style={{ display: 'flex', gap: '12px' }}>
                     <button className="admin-btn admin-btn-outline" onClick={() => showToast('Mengekspor laporan...', 'success')}>Export CSV</button>
                     <button className="admin-btn admin-btn-primary" onClick={() => {
-                        setFormData({ user_name: '', amount: '', status: 'Pending', delivery_status: 'Processing', method: 'Manual' });
+                        setFormData({ user_name: '', amount: '', status: 'Pending', delivery_status: 'Processing', method: 'Manual', shipping_receipt: '', shipping_courier: 'jne', items: [] });
                         setEditingId(null);
                         setIsModalOpen(true);
                     }}>
@@ -759,6 +939,7 @@ const TransactionsView = ({ showToast }) => {
                             <tr>
                                 <th>Order ID</th>
                                 <th>Pelanggan</th>
+                                <th>Barang</th>
                                 <th>Tanggal & Waktu</th>
                                 <th>Total Nilai</th>
                                 <th>Metode Pembayaran</th>
@@ -769,11 +950,20 @@ const TransactionsView = ({ showToast }) => {
                         </thead>
                         <tbody>
                             {isLoading ? (
-                                <tr><td colSpan="8" style={{ textAlign: 'center', padding: '32px' }}><Loader className="animate-spin" /> </td></tr>
+                                <tr><td colSpan="9" style={{ textAlign: 'center', padding: '32px' }}><Loader className="animate-spin" /> Memuat Data...</td></tr>
                             ) : filteredTransactions.length > 0 ? filteredTransactions.map((trx, idx) => (
                                 <tr key={trx.id || idx}>
                                     <td style={{ fontWeight: 500, fontSize: '12px' }}>{trx.id}</td>
                                     <td>{trx.user_name}</td>
+                                    <td>
+                                        {trx.items && trx.items.length > 0 ? (
+                                            <div style={{ fontSize: '12px' }}>
+                                                {trx.items[0].name} {trx.items.length > 1 ? `(+${trx.items.length - 1})` : ''}
+                                            </div>
+                                        ) : (
+                                            <span style={{ color: '#94a3b8', fontSize: '12px' }}>N/A</span>
+                                        )}
+                                    </td>
                                     <td style={{ color: 'var(--admin-text-muted)', fontSize: '13px' }}>{trx.created_at}</td>
                                     <td style={{ fontWeight: 600 }}>Rp {trx.amount.toLocaleString()}</td>
                                     <td style={{ fontSize: '13px' }}>{trx.method}</td>
@@ -819,6 +1009,17 @@ const TransactionsView = ({ showToast }) => {
                             </button>
                         </div>
                         <div className="admin-modal-body">
+                            {formData.items && formData.items.length > 0 && (
+                                <div style={{ background: '#f1f5f9', padding: '16px', borderRadius: '12px', marginBottom: '20px' }}>
+                                    <h4 style={{ margin: '0 0 12px 0', fontSize: '13px', color: '#64748b' }}>DETAIL PRODUK DIPESAN</h4>
+                                    {formData.items.map((item, idx) => (
+                                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', marginBottom: '8px' }}>
+                                            <span><strong>{item.quantity}x</strong> {item.name}</span>
+                                            <span>Rp {item.price?.toLocaleString()}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                             <div className="admin-form-group">
                                 <label>Nama Pelanggan</label>
                                 <input type="text" className="admin-form-control" placeholder="Nama Pelanggan" value={formData.user_name} onChange={e => setFormData({ ...formData, user_name: e.target.value })} />
@@ -847,6 +1048,28 @@ const TransactionsView = ({ showToast }) => {
                                 <label>Metode Pembayaran</label>
                                 <input type="text" className="admin-form-control" placeholder="Manual, Transfer BCA, dll" value={formData.method} onChange={e => setFormData({ ...formData, method: e.target.value })} />
                             </div>
+
+                            <div style={{ padding: '16px', background: '#f8fafc', borderRadius: '12px', marginTop: '16px', border: '1px solid #e2e8f0' }}>
+                                <h4 style={{ margin: '0 0 12px 0', fontSize: '13px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <Truck size={14} /> INFORMASI PENGIRIMAN
+                                </h4>
+                                <div className="admin-form-group">
+                                    <label>Kurir</label>
+                                    <select className="admin-form-control" value={formData.shipping_courier} onChange={e => setFormData({ ...formData, shipping_courier: e.target.value })}>
+                                        <option value="jne">JNE (Jalur Nugraha Ekakurir)</option>
+                                        <option value="pos">POS Indonesia</option>
+                                        <option value="tiki">TIKI (Citra Van Titipan Kilat)</option>
+                                        <option value="sicepat">SiCepat</option>
+                                        <option value="jnt">J&T Express</option>
+                                        <option value="anteraja">AnterAja</option>
+                                    </select>
+                                </div>
+                                <div className="admin-form-group">
+                                    <label>No. Resi Pengiriman</label>
+                                    <input type="text" className="admin-form-control" placeholder="Masukkan nomor resi" value={formData.shipping_receipt} onChange={e => setFormData({ ...formData, shipping_receipt: e.target.value })} />
+                                    <p style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>Input resi akan muncul di aplikasi user (Cek Resi - RajaOngkir)</p>
+                                </div>
+                            </div>
                         </div>
                         <div className="admin-modal-footer">
                             <button className="admin-btn admin-btn-outline" onClick={() => setIsModalOpen(false)}>Batal</button>
@@ -869,7 +1092,11 @@ const SettingsView = ({ showToast }) => {
         bank_account_name: 'PT YOUMAN NUSANTARA',
         qris_url: 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=YOUMAN-PAYMENT',
         pakasir_enabled: true,
-        qris_enabled: true
+        qris_enabled: true,
+        rajaongkir_api_key: '',
+        rajaongkir_enabled: false,
+        xendit_enabled: false,
+        xendit_api_key: ''
     });
 
     useEffect(() => {
@@ -963,6 +1190,26 @@ const SettingsView = ({ showToast }) => {
                     </div>
                 </div>
 
+                {/* Xendit Settings */}
+                <div className="admin-card">
+                    <div className="admin-card-header" style={{ marginBottom: '20px' }}>
+                        <h3 className="admin-card-title">Integrasi Xendit (Payment Gateway)</h3>
+                        <div 
+                            onClick={() => setSettings({ ...settings, xendit_enabled: !settings.xendit_enabled })}
+                            style={{ width: '40px', height: '20px', background: settings.xendit_enabled ? 'var(--admin-primary)' : '#cbd5e1', borderRadius: '10px', position: 'relative', cursor: 'pointer', transition: '0.3s' }}
+                        >
+                            <div style={{ width: '16px', height: '16px', background: '#fff', borderRadius: '50%', position: 'absolute', top: '2px', left: settings.xendit_enabled ? '22px' : '2px', transition: '0.3s' }} />
+                        </div>
+                    </div>
+                    <div className="admin-form-group">
+                        <label>Secret API Key Xendit</label>
+                        <input type="password" className="admin-form-control" placeholder="xnd_development_..." value={settings.xendit_api_key} onChange={e => setSettings({ ...settings, xendit_api_key: e.target.value })} />
+                    </div>
+                    <p style={{ fontSize: '11px', color: '#64748b', lineHeight: '1.6', marginTop: '8px' }}>
+                        Gunakan Secret Key dari dashboard Xendit Anda. Pastikan untuk menguji di mode development sebelum beralih ke production.
+                    </p>
+                </div>
+
                 {/* Pakasir.com Settings */}
                 <div className="admin-card">
                     <div className="admin-card-header" style={{ marginBottom: '20px' }}>
@@ -978,6 +1225,26 @@ const SettingsView = ({ showToast }) => {
                         Metode ini akan mengarahkan pengguna ke sistem pembayaran otomatis pihak ketiga. Pastikan API Key Pakasir Anda sudah terpasang di file environment.
                     </p>
                 </div>
+
+                {/* RajaOngkir Settings */}
+                <div className="admin-card">
+                    <div className="admin-card-header" style={{ marginBottom: '20px' }}>
+                        <h3 className="admin-card-title">Integrasi RajaOngkir (Cek Resi)</h3>
+                        <div 
+                            onClick={() => setSettings({ ...settings, rajaongkir_enabled: !settings.rajaongkir_enabled })}
+                            style={{ width: '40px', height: '20px', background: settings.rajaongkir_enabled ? 'var(--admin-primary)' : '#cbd5e1', borderRadius: '10px', position: 'relative', cursor: 'pointer', transition: '0.3s' }}
+                        >
+                            <div style={{ width: '16px', height: '16px', background: '#fff', borderRadius: '50%', position: 'absolute', top: '2px', left: settings.rajaongkir_enabled ? '22px' : '2px', transition: '0.3s' }} />
+                        </div>
+                    </div>
+                    <div className="admin-form-group">
+                        <label>API Key RajaOngkir (Pro/Basic)</label>
+                        <input type="password" className="admin-form-control" placeholder="Masukkan API Key" value={settings.rajaongkir_api_key} onChange={e => setSettings({ ...settings, rajaongkir_api_key: e.target.value })} />
+                    </div>
+                    <p style={{ fontSize: '11px', color: '#64748b', lineHeight: '1.6', marginTop: '8px' }}>
+                        Dapatkan API Key di <a href="https://rajaongkir.com" target="_blank" rel="noreferrer" style={{ color: 'var(--admin-primary)' }}>rajaongkir.com</a>. Fitur ini memungkinkan pengguna melacak pengiriman langsung dari aplikasi.
+                    </p>
+                </div>
             </div>
 
             <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'flex-end' }}>
@@ -990,6 +1257,242 @@ const SettingsView = ({ showToast }) => {
                     {saving ? <Loader className="animate-spin" size={18} /> : 'Simpan Seluruh Perubahan'}
                 </button>
             </div>
+        </div>
+    );
+};
+
+const KnowledgeAdminView = ({ showToast }) => {
+    const [knowledgeList, setKnowledgeList] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingId, setEditingId] = useState(null);
+    const [formData, setFormData] = useState({ title: '', description: '', image_url: '', target_level: 'Semua Level' });
+    const [filterLevel, setFilterLevel] = useState('Semua');
+
+    useEffect(() => {
+        fetchKnowledge();
+    }, []);
+
+    const fetchKnowledge = async () => {
+        try {
+            const { data, error } = await supabase.from('knowledge_base').select('*').order('created_at', { ascending: false });
+            if (error) throw error;
+            setKnowledgeList(data || []);
+        } catch (error) {
+            console.error(error);
+            showToast('Gagal memuat data knowledge base', 'error');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleSave = async () => {
+        if (!formData.title || !formData.description) {
+            showToast('Judul dan Deskripsi wajib diisi!', 'error');
+            return;
+        }
+
+        try {
+            if (editingId) {
+                const { error } = await supabase.from('knowledge_base').update(formData).eq('id', editingId);
+                if (error) throw error;
+                setKnowledgeList(knowledgeList.map(item => item.id === editingId ? { ...item, ...formData } : item));
+                showToast('Knowledge berhasil diperbarui!', 'success');
+            } else {
+                const { data, error } = await supabase.from('knowledge_base').insert([formData]).select();
+                if (error) throw error;
+                setKnowledgeList([data[0], ...knowledgeList]);
+                showToast('Knowledge baru berhasil ditambahkan!', 'success');
+            }
+        } catch (error) {
+            console.error(error);
+            showToast('Gagal menyimpan knowledge', 'error');
+        }
+
+        setFormData({ title: '', description: '', image_url: '', target_level: 'Semua Level' });
+        setEditingId(null);
+        setIsModalOpen(false);
+    };
+
+    const handleEdit = (item) => {
+        setFormData({ title: item.title, description: item.description, image_url: item.image_url || '', target_level: item.target_level || 'Semua Level' });
+        setEditingId(item.id);
+        setIsModalOpen(true);
+    };
+
+    const handleDelete = async (id) => {
+        if (window.confirm("Yakin ingin menghapus knowledge ini?")) {
+            try {
+                const { error } = await supabase.from('knowledge_base').delete().eq('id', id);
+                if (error) throw error;
+                setKnowledgeList(knowledgeList.filter(item => item.id !== id));
+                showToast('Knowledge berhasil dihapus!', 'success');
+            } catch (error) {
+                showToast('Gagal menghapus knowledge', 'error');
+            }
+        }
+    };
+
+    const filteredKnowledge = filterLevel === 'Semua' 
+        ? knowledgeList 
+        : knowledgeList.filter(item => item.target_level === filterLevel);
+
+    const getLevelBadgeColor = (level) => {
+        switch(level) {
+            case 'Pria Pemula': return { bg: '#f1f5f9', color: '#64748b' };
+            case 'Pria Disiplin': return { bg: '#dcfce7', color: '#15803d' };
+            case 'Disiplin Elit': return { bg: '#dbeafe', color: '#1d4ed8' };
+            case 'Sang Raja': return { bg: '#fef3c7', color: '#b45309' };
+            default: return { bg: '#f3f4f6', color: '#374151' };
+        }
+    };
+
+    return (
+        <div className="admin-fade-in">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
+                <div>
+                    <h1 className="admin-page-title" style={{ margin: 0 }}>Manajemen Knowledge</h1>
+                    <p style={{ color: 'var(--admin-text-muted)', fontSize: '13px', margin: '4px 0 0 0' }}>Kelola materi berdasarkan level disiplin user.</p>
+                </div>
+                <div style={{ display: 'flex', gap: '12px' }}>
+                    <select 
+                        className="admin-form-control" 
+                        style={{ width: 'auto', minWidth: '160px' }}
+                        value={filterLevel}
+                        onChange={(e) => setFilterLevel(e.target.value)}
+                    >
+                        <option value="Semua">Filter Level: Semua</option>
+                        <option value="Semua Level">Umum (Semua Level)</option>
+                        <option value="Pria Pemula">Pria Pemula</option>
+                        <option value="Pria Disiplin">Pria Disiplin</option>
+                        <option value="Disiplin Elit">Disiplin Elit</option>
+                        <option value="Sang Raja">Sang Raja</option>
+                    </select>
+                    <button className="admin-btn admin-btn-primary" onClick={() => {
+                        setFormData({ title: '', description: '', image_url: '', target_level: 'Semua Level' });
+                        setEditingId(null);
+                        setIsModalOpen(true);
+                    }}>
+                        <Plus size={18} /> Tambah Materi
+                    </button>
+                </div>
+            </div>
+
+            <div className="admin-table-container">
+                <div style={{ overflowX: 'auto' }}>
+                    <table className="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Judul Materi & Deskripsi</th>
+                                <th>Level Target</th>
+                                <th>Tanggal Dibuat</th>
+                                <th>Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {isLoading ? (
+                                <tr><td colSpan="4" style={{ textAlign: 'center', padding: '32px' }}><Loader className="animate-spin" /> Memuat data...</td></tr>
+                            ) : filteredKnowledge.length > 0 ? filteredKnowledge.map((item) => (
+                                <tr key={item.id}>
+                                    <td style={{ fontWeight: 500 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                            {item.image_url ? 
+                                                <img src={item.image_url} alt={item.title} style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '4px' }} />
+                                                : <div style={{ width: '40px', height: '40px', background: '#f1f5f9', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><BookOpen size={16} color="#94a3b8" /></div>
+                                            }
+                                            <div>
+                                                <div>{item.title}</div>
+                                                <div style={{ fontSize: '11px', color: 'var(--admin-text-muted)', maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.description}</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span className="admin-badge" style={{ 
+                                            backgroundColor: getLevelBadgeColor(item.target_level).bg,
+                                            color: getLevelBadgeColor(item.target_level).color,
+                                            padding: '4px 10px',
+                                            borderRadius: '20px',
+                                            fontSize: '11px',
+                                            fontWeight: '600'
+                                        }}>
+                                            {item.target_level}
+                                        </span>
+                                    </td>
+                                    <td style={{ color: 'var(--admin-text-muted)' }}>{new Date(item.created_at).toLocaleDateString('id-ID')}</td>
+                                    <td>
+                                        <div style={{ display: 'flex', gap: '8px' }}>
+                                            <button className="admin-btn admin-btn-outline" style={{ padding: '6px' }} title="Edit" onClick={() => handleEdit(item)}><Edit size={16} /></button>
+                                            <button className="admin-btn admin-btn-danger" style={{ padding: '6px' }} title="Hapus" onClick={() => handleDelete(item.id)}><Trash2 size={16} /></button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            )) : (
+                                <tr><td colSpan="4" style={{ textAlign: 'center', padding: '32px' }}>Belum ada materi knowledge base.</td></tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            {isModalOpen && (
+                <div className="admin-modal-overlay">
+                    <div className="admin-modal" style={{ width: '600px', maxWidth: '90%' }}>
+                        <div className="admin-modal-header">
+                            <h2 className="admin-modal-title">{editingId ? 'Edit Materi' : 'Tambah Materi Baru'}</h2>
+                            <button className="admin-btn-outline" style={{ padding: '4px', border: 'none', borderRadius: '50%' }} onClick={() => setIsModalOpen(false)}>
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <div className="admin-modal-body">
+                            <div className="admin-form-group">
+                                <label>Judul Materi</label>
+                                <input type="text" className="admin-form-control" placeholder="Contoh: Manfaat Deep Work" value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} />
+                            </div>
+                            <div className="admin-form-group">
+                                <label>Target Level Akses</label>
+                                <select className="admin-form-control" value={formData.target_level} onChange={e => setFormData({ ...formData, target_level: e.target.value })}>
+                                    <option value="Semua Level">Semua Level (Bisa dibaca siapa saja)</option>
+                                    <option value="Pria Pemula">Pria Pemula (Streak 0+)</option>
+                                    <option value="Pria Disiplin">Pria Disiplin (Streak 7+)</option>
+                                    <option value="Disiplin Elit">Disiplin Elit (Streak 21+)</option>
+                                    <option value="Sang Raja">Sang Raja (Streak 60+)</option>
+                                </select>
+                            </div>
+                            <div className="admin-form-group">
+                                <label>Gambar Materi</label>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '8px' }}>
+                                    {formData.image_url ? (
+                                        <div style={{ position: 'relative' }}>
+                                            <img src={formData.image_url} alt="Preview" style={{ width: '100px', height: '60px', borderRadius: '8px', objectFit: 'cover', border: '1px solid #e2e8f0' }} />
+                                            <button 
+                                                onClick={() => setFormData({ ...formData, image_url: '' })}
+                                                style={{ position: 'absolute', top: '-8px', right: '-8px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '50%', width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                                            >
+                                                <X size={12} />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div style={{ width: '100px', height: '60px', borderRadius: '8px', border: '2px dashed #cbd5e1', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#cbd5e1' }}>
+                                            <BookOpen size={24} />
+                                        </div>
+                                    )}
+                                    <button className="admin-btn admin-btn-outline" style={{ height: 'max-content' }} onClick={() => openCloudinaryWidget(url => setFormData({ ...formData, image_url: url }))}>
+                                        {formData.image_url ? 'Ubah Gambar' : 'Upload Cover Materi'}
+                                    </button>
+                                </div>
+                            </div>
+                            <div className="admin-form-group">
+                                <label>Deskripsi / Konten</label>
+                                <textarea rows="6" className="admin-form-control" placeholder="Tuliskan materi di sini..." value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })}></textarea>
+                            </div>
+                        </div>
+                        <div className="admin-modal-footer">
+                            <button className="admin-btn admin-btn-outline" onClick={() => setIsModalOpen(false)}>Batal</button>
+                            <button className="admin-btn admin-btn-primary" onClick={handleSave}>Simpan Materi</button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
@@ -1106,6 +1609,7 @@ function AdminDashboard({ adminUser, onLogout }) {
         { id: 'users', label: 'Manajemen User', icon: Users },
         { id: 'transactions', label: 'Transaksi', icon: CreditCard },
         { id: 'products', label: 'Manajemen Produk', icon: Package },
+        { id: 'knowledge', label: 'Manajemen Knowledge', icon: BookOpen },
         { id: 'settings', label: 'Manajemen Pembayaran', icon: Settings },
     ];
 
@@ -1115,6 +1619,7 @@ function AdminDashboard({ adminUser, onLogout }) {
             case 'users': return <UsersView showToast={showToast} />;
             case 'transactions': return <TransactionsView showToast={showToast} />;
             case 'products': return <ProductsView products={products} setProducts={setProducts} showToast={showToast} />;
+            case 'knowledge': return <KnowledgeAdminView showToast={showToast} />;
             case 'settings': return <SettingsView showToast={showToast} />;
             default: return <DashboardView products={products} />;
         }
