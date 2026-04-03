@@ -49,10 +49,10 @@ import { supabase } from './utils/supabase';
 const BottomNav = ({ activeTab, setActiveTab }) => {
     const tabs = [
         { id: 'home', icon: HomeIcon, label: 'Home' },
-        { id: 'store', icon: ShoppingCart, label: 'Store' },
         { id: 'protocol', icon: Clock, label: 'Protocol' },
         { id: 'knowledge', icon: Brain, label: 'Knowledge' },
         { id: 'progress', icon: TrendingUp, label: 'Stats' },
+        { id: 'store', icon: ShoppingCart, label: 'Store' },
         { id: 'profile', icon: User, label: 'Profile' }
     ];
 
@@ -210,29 +210,7 @@ const HomeView = ({ rituals, toggleRitual, streak, isAlarmActive, toggleAlarm })
                 </div>
             </div>
 
-            {/* Product Reminder */}
-            {!rituals.find(r => r.title === 'Minum Youman')?.completed && (
-                <div className={`glass-card ${isAlarmActive ? 'alarm-ringing' : ''}`} style={{ 
-                    padding: '16px', 
-                    marginBottom: '24px',
-                    background: isAlarmActive ? 'linear-gradient(45deg, #400 0%, #800 100%)' : 'linear-gradient(45deg, rgba(20,20,20,1) 0%, rgba(40,40,40,1) 100%)',
-                    borderLeft: isAlarmActive ? '4px solid #FF3B30' : '4px solid #FFF',
-                    transition: 'all 0.3s ease'
-                }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div>
-                            <h3 style={{ fontSize: '16px', marginBottom: '4px', color: isAlarmActive ? '#FFF' : 'inherit' }}>Waktunya Minum YOUMAN</h3>
-                            <p style={{ fontSize: '12px', color: isAlarmActive ? '#FFBDBD' : '#AAA' }}>Optimalkan testosteron harian Anda</p>
-                        </div>
-                        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                            <Droplet size={24} color={isAlarmActive ? '#FF3B30' : '#FFF'} />
-                        </div>
-                    </div>
-                    {isAlarmActive && (
-                        <audio autoPlay loop src="https://actions.google.com/sounds/v1/alarms/digital_watch_alarm_long.ogg" />
-                    )}
-                </div>
-            )}
+
 
             {/* Daily Protocol Checklist */}
             <div style={{ marginBottom: '24px' }}>
@@ -269,9 +247,7 @@ const HomeView = ({ rituals, toggleRitual, streak, isAlarmActive, toggleAlarm })
                                 border: '1px solid rgba(255,255,255,0.05)'
                             }}
                         >
-                            <div className={`checkbox ${item.completed ? 'checked' : ''}`} style={{ marginRight: '16px' }}>
-                                {item.completed && <CheckCircle2 size={16} />}
-                            </div>
+
                             <div style={{ flex: 1, opacity: item.completed ? 0.5 : 1 }}>
                                 <div style={{ fontWeight: '700', fontSize: '16px', marginBottom: '4px' }}>{item.title}</div>
                                 {item.subtitle && <div style={{ fontSize: '11px', color: '#888', marginBottom: '8px' }}>{item.subtitle}</div>}
@@ -405,9 +381,19 @@ const ProtocolView = ({ rituals, setRituals }) => {
 
             {rituals.map(item => (
                 <div key={item.id} className="glass-card" style={{ padding: '16px', marginBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: '700', fontSize: '15px' }}>{item.title}</div>
-                        <div style={{ fontSize: '12px', color: '#888' }}>{item.subtitle}</div>
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <input 
+                            value={item.title}
+                            onChange={(e) => setRituals(rituals.map(r => r.id === item.id ? { ...r, title: e.target.value } : r))}
+                            placeholder="Nama Ritual"
+                            style={{ background: 'none', border: 'none', color: '#FFF', fontWeight: '700', fontSize: '15px', padding: 0, outline: 'none', width: '100%' }}
+                        />
+                        <input 
+                            value={item.subtitle}
+                            onChange={(e) => setRituals(rituals.map(r => r.id === item.id ? { ...r, subtitle: e.target.value } : r))}
+                            placeholder="Deskripsi"
+                            style={{ background: 'none', border: 'none', color: '#888', fontSize: '12px', padding: 0, outline: 'none', width: '100%' }}
+                        />
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                         <input 
@@ -1296,7 +1282,9 @@ const AuthView = ({ onLoginSuccess }) => {
             <AnimatePresence mode="wait">
                 {onboardingStep === 'welcome' && (
                     <motion.div key="welcome" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.05 }} className="glass-card" style={{ padding: '48px 24px', textAlign: 'center' }}>
-                        <div style={{ width: '80px', height: '80px', background: '#FFF', color: '#000', borderRadius: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px', fontWeight: 'bold', margin: '0 auto 24px auto' }}>Y</div>
+                        <div style={{ width: '120px', height: '120px', background: '#FFF', borderRadius: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 32px auto', overflow: 'hidden', boxShadow: '0 10px 40px rgba(0,0,0,0.3)' }}>
+                            <img src="/Logo Youman (Hitam).png" alt="Logo YOUMAN" style={{ width: '100%', height: '100%', objectFit: 'contain', padding: '12px' }} />
+                        </div>
                         <h1 style={{ margin: '0 0 12px 0', fontSize: '32px', fontWeight: '800', letterSpacing: '2px' }}>WELCOME</h1>
                         <p style={{ color: '#888', marginBottom: '48px', fontSize: '16px', lineHeight: '1.5' }}>Optimalkan performa puncak Anda bersama YOUMAN.</p>
                         
