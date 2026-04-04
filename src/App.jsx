@@ -60,7 +60,7 @@ const BottomNav = ({ activeTab, setActiveTab }) => {
         <nav className="glass-nav" style={{ 
             display: 'flex', 
             justifyContent: 'space-around', 
-            padding: '12px 0 24px', 
+            padding: '12px 0 calc(env(safe-area-inset-bottom) + 12px)', 
             borderTop: '1px solid rgba(255,255,255,0.05)',
             background: 'rgba(10,10,10,0.85)',
             backdropFilter: 'blur(10px)',
@@ -323,7 +323,7 @@ const ProtocolView = ({ rituals, setRituals }) => {
         >
             <SectionHeader title="Protocol" subtitle="30 Day Discipline Program" />
 
-            <div style={{ marginBottom: '32px', display: 'flex', gap: '12px', overflowX: 'auto', paddingBottom: '12px', msOverflowStyle: 'none', scrollbarWidth: 'none' }} className="calendar-scroll">
+            <div style={{ marginBottom: '32px', display: 'flex', gap: '12px', overflowX: 'auto', paddingBottom: '12px', msOverflowStyle: 'none', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch', overscrollBehaviorX: 'contain' }} className="calendar-scroll">
                 {days.map((date, idx) => {
                     const isSelected = date.toDateString() === selectedDate.toDateString();
                     const isToday = date.toDateString() === new Date().toDateString();
@@ -1802,9 +1802,11 @@ function AppContent({ onCheckTracking, onShowDetail }) {
             background: '#050505', 
             color: '#FFFFFF',
             minHeight: '100vh',
+            minHeight: '100dvh',
+            paddingTop: 'env(safe-area-inset-top)',
             fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
         }}>
-            <main className="content" style={{ padding: '24px', maxWidth: '480px', margin: '0 auto' }}>
+            <main className="content" style={{ maxWidth: '480px', margin: '0 auto' }}>
                 <AnimatePresence mode="wait">
                     {activeTab === 'home' && (
                         <HomeView
