@@ -30,6 +30,7 @@ import {
     Package
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import {
     saveRituals,
     getRituals,
@@ -1031,6 +1032,7 @@ const ProgressView = ({ rituals, streak, history }) => {
 };
 
 const ProfilView = ({ streak, bestStreak, onReset, setActiveTab, userId, onCheckTracking, onShowDetail }) => {
+    const navigate = useNavigate();
     let level = 'Pria Pemula';
     if (streak >= 7 && streak < 21) level = 'Pria Disiplin';
     else if (streak >= 21 && streak < 60) level = 'Disiplin Elit';
@@ -1179,6 +1181,24 @@ const ProfilView = ({ streak, bestStreak, onReset, setActiveTab, userId, onCheck
                 </div>
 
                 <div 
+                    onClick={() => navigate('/privacy-policy')}
+                    className="glass-card" 
+                    style={{ 
+                        display: 'flex', 
+                        justifyContent: 'space-between', 
+                        alignItems: 'center', 
+                        padding: '16px 20px', 
+                        cursor: 'pointer',
+                        marginTop: '8px'
+                    }}
+                >
+                    <span style={{ fontWeight: '500', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <Shield size={18} color="#888" /> Kebijakan Privasi
+                    </span>
+                    <ChevronRight size={18} color="#444" />
+                </div>
+
+                <div 
                     onClick={() => { localStorage.removeItem('youman_is_logged_in'); window.location.reload(); }} 
                     className="glass-card" 
                     style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', cursor: 'pointer', marginTop: '12px', background: 'rgba(255, 59, 48, 0.1)' }}
@@ -1215,6 +1235,7 @@ class AppErrorBoundary extends React.Component {
 
 // --- AUTHENTICATION COMPONENT ---
 const AuthView = ({ onLoginSuccess }) => {
+    const navigate = useNavigate();
     const [onboardingStep, setOnboardingStep] = useState('welcome'); // 'welcome', 'profile', 'rhythm', 'login'
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({ 
@@ -1291,6 +1312,15 @@ const AuthView = ({ onLoginSuccess }) => {
                         <div style={{ display: 'grid', gap: '12px' }}>
                             <button onClick={() => setOnboardingStep('profile')} className="btn-primary" style={{ width: '100%', fontSize: '16px', fontWeight: 'bold' }}>Mulai Perjalanan Baru</button>
                             <button onClick={() => setOnboardingStep('login')} style={{ background: 'none', border: '1px solid rgba(255,255,255,0.1)', color: '#FFF', padding: '14px', borderRadius: '12px', cursor: 'pointer', fontSize: '14px' }}>Sudah Punya Akun</button>
+                        </div>
+                        
+                        <div style={{ marginTop: '32px' }}>
+                            <button 
+                                onClick={() => navigate('/privacy-policy')}
+                                style={{ background: 'none', border: 'none', color: '#666', fontSize: '13px', textDecoration: 'underline', cursor: 'pointer' }}
+                            >
+                                Kebijakan Privasi
+                            </button>
                         </div>
                     </motion.div>
                 )}
