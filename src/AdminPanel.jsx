@@ -13,14 +13,16 @@ import { supabase } from './utils/supabase';
 
 // --- CLOUDINARY CONFIG ---
 const CLOUDINARY_CONFIG = {
-    cloudName: import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'dxn7n2jux', 
-    uploadPreset: import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'youman_app',
+    cloudName: import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'dmjpjmece',
+    apiKey: import.meta.env.VITE_CLOUDINARY_API_KEY || '644779296515212',
+    uploadPreset: import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'yaoumanapp',
 };
 
 const openCloudinaryWidget = (onSuccess) => {
     if (window.cloudinary) {
         const widget = window.cloudinary.createUploadWidget({
             cloudName: CLOUDINARY_CONFIG.cloudName,
+            apiKey: CLOUDINARY_CONFIG.apiKey,
             uploadPreset: CLOUDINARY_CONFIG.uploadPreset,
             folder: 'youman_products',
             clientAllowedFormats: ['jpeg', 'png', 'webp', 'jpg'],
