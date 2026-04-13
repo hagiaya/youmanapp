@@ -29,6 +29,7 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,json}'], // Cache all necessary assets for offline use
+        maximumFileSizeToCacheInBytes: 6 * 1024 * 1024, // 6MB limit
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
