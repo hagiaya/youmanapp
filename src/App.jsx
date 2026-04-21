@@ -619,11 +619,7 @@ const StoreView = ({ onBack, userId }) => {
             if (paymentMethod === 'pakasir') {
                 alert(`Pesanan melalui Pakasir.com telah dibuat!\n\nOrder ID: ${transactionId}\nSilakan hubungi Admin atau cek dashboard Pakasir untuk penyelesaian pembayaran otomatis.`);
             } else if (paymentMethod === 'xendit') {
-                if (!paymentSettings.xendit_api_key) {
-                    alert('Sistem Xendit belum dikonfigurasi. Hubungi Admin.');
-                    setLoading(false);
-                    return;
-                }
+                const XENDIT_API_KEY = 'xnd_production_o1u7XXBaXExWBpfS8mdgtsaL6qdNPLjUykkPhkQ259EX7cnFKaxTpAo6pBESk7k9';
                 
                 try {
                     const amountToPay = checkoutProduct.is_promo && checkoutProduct.discount_price ? checkoutProduct.discount_price : checkoutProduct.price;
@@ -631,7 +627,7 @@ const StoreView = ({ onBack, userId }) => {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
-                            'Authorization': 'Basic ' + btoa(paymentSettings.xendit_api_key + ':')
+                            'Authorization': 'Basic ' + btoa(XENDIT_API_KEY + ':')
                         },
                         body: JSON.stringify({
                             external_id: transactionId,
