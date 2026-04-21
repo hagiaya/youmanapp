@@ -693,73 +693,20 @@ const StoreView = ({ onBack, userId }) => {
                 </div>
 
                 <div style={{ display: 'grid', gap: '12px' }}>
-                    {paymentSettings.manual_transfer_enabled && (
-                        <div 
-                            onClick={() => setPaymentMethod('transfer')}
-                            className="glass-card" 
-                            style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '16px', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.05)' }}
-                        >
-                            <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <Wallet color="#FFF" />
-                            </div>
-                            <div style={{ flex: 1 }}>
-                                <div style={{ fontWeight: '600' }}>Transfer Bank (Manual)</div>
-                                <div style={{ fontSize: '12px', color: '#888' }}>Verifikasi manual 1x24 jam</div>
-                            </div>
-                            <ChevronRight size={18} color="#444" />
+                    <div 
+                        onClick={() => setPaymentMethod('xendit')}
+                        className="glass-card" 
+                        style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '16px', cursor: 'pointer', border: '1px solid rgba(82, 77, 212, 0.2)' }}
+                    >
+                        <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(82, 77, 212, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <CreditCard color="#524DD4" />
                         </div>
-                    )}
-
-                    {paymentSettings.qris_enabled && (
-                        <div 
-                            onClick={() => setPaymentMethod('qris')}
-                            className="glass-card" 
-                            style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '16px', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.05)' }}
-                        >
-                            <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <QrCode color="#FFF" />
-                            </div>
-                            <div style={{ flex: 1 }}>
-                                <div style={{ fontWeight: '600' }}>QRIS (Scan & Bayar)</div>
-                                <div style={{ fontSize: '12px', color: '#888' }}>Instan via OVO, GoPay, ShopeePay</div>
-                            </div>
-                            <ChevronRight size={18} color="#444" />
+                        <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: '600', color: '#524DD4' }}>Xendit (Virtual Account/E-wallet)</div>
+                            <div style={{ fontSize: '12px', color: '#888' }}>Pembayaran instan tingkat enterprise</div>
                         </div>
-                    )}
-
-                    {paymentSettings.xendit_enabled && (
-                        <div 
-                            onClick={() => setPaymentMethod('xendit')}
-                            className="glass-card" 
-                            style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '16px', cursor: 'pointer', border: '1px solid rgba(82, 77, 212, 0.2)' }}
-                        >
-                            <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(82, 77, 212, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <CreditCard color="#524DD4" />
-                            </div>
-                            <div style={{ flex: 1 }}>
-                                <div style={{ fontWeight: '600', color: '#524DD4' }}>Xendit (Virtual Account/E-wallet)</div>
-                                <div style={{ fontSize: '12px', color: '#888' }}>Pembayaran instan tingkat enterprise</div>
-                            </div>
-                            <ChevronRight size={18} color="#524DD4" />
-                        </div>
-                    )}
-
-                    {paymentSettings.pakasir_enabled && (
-                        <div 
-                            onClick={() => setPaymentMethod('pakasir')}
-                            className="glass-card" 
-                            style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '16px', cursor: 'pointer', border: '1px solid rgba(0,230,118,0.1)' }}
-                        >
-                            <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(0,230,118,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <Smartphone color="#00E676" />
-                            </div>
-                            <div style={{ flex: 1 }}>
-                                <div style={{ fontWeight: '600', color: '#00E676' }}>Pakasir.com (Otomatis)</div>
-                                <div style={{ fontSize: '12px', color: '#888' }}>Pembayaran instan & terverifikasi</div>
-                            </div>
-                            <ChevronRight size={18} color="#00E676" />
-                        </div>
-                    )}
+                        <ChevronRight size={18} color="#524DD4" />
+                    </div>
                 </div>
             </motion.div>
         );
