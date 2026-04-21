@@ -1158,42 +1158,44 @@ const ProfilView = ({ streak, bestStreak, onReset, setActiveTab, userId, onCheck
                     <ChevronRight size={18} color="#000" />
                 </div>
 
-                {transactions.length > 0 && (
-                    <div id="my-orders" style={{ marginBottom: '16px', marginTop: '16px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                            <h2 style={{ fontSize: '16px', color: '#AAA', textTransform: 'uppercase', letterSpacing: '1px' }}>Daftar Pesanan & Pengiriman</h2>
-                            <span style={{ fontSize: '11px', color: '#666' }}>Klik untuk detail</span>
-                        </div>
-                        {transactions.map(trx => (
-                            <div 
-                                key={trx.id} 
-                                onClick={() => onShowDetail(trx)}
-                                className="glass-card" 
-                                style={{ background: 'rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', cursor: 'pointer', marginBottom: '8px' }}
-                            >
-                                <div>
-                                    <h4 style={{ margin: '0 0 4px 0', fontSize: '13px', fontWeight: 'bold' }}>{trx.id}</h4>
-                                    <p style={{ margin: 0, fontSize: '11px', color: '#888' }}>Metode: {trx.method || 'Pakasir.com'}</p>
-                                    {trx.shipping_receipt && (
-                                        <div style={{ marginTop: '8px', display: 'flex', gap: '8px' }}>
-                                            <button 
-                                                onClick={() => onCheckTracking(trx.shipping_receipt, trx.shipping_courier)}
-                                                style={{ padding: '6px 12px', background: 'rgba(0,230,118,0.1)', border: '1px solid #00E676', color: '#00E676', borderRadius: '6px', fontSize: '10px', fontWeight: 'bold', cursor: 'pointer' }}
-                                            >
-                                                Cek Resi
-                                            </button>
-                                            <div style={{ fontSize: '10px', color: '#AAA', alignSelf: 'center' }}>{trx.shipping_receipt}</div>
-                                        </div>
-                                    )}
-                                </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                    <div style={{ width: '8px', height: '8px', background: trx.delivery_status === 'Delivered' ? '#00E676' : '#FFD700', borderRadius: '50%' }}></div>
-                                    <span style={{ fontSize: '11px', fontWeight: 'bold', color: trx.delivery_status === 'Delivered' ? '#00E676' : '#FFD700' }}>{trx.delivery_status || 'Processing'}</span>
-                                </div>
-                            </div>
-                        ))}
+                <div id="my-orders" style={{ marginBottom: '16px', marginTop: '16px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                        <h2 style={{ fontSize: '16px', color: '#AAA', textTransform: 'uppercase', letterSpacing: '1px' }}>Daftar Pesanan & Pengiriman</h2>
+                        {transactions.length > 0 && <span style={{ fontSize: '11px', color: '#666' }}>Klik untuk detail</span>}
                     </div>
-                )}
+                    {transactions.length > 0 ? transactions.map(trx => (
+                        <div 
+                            key={trx.id} 
+                            onClick={() => onShowDetail(trx)}
+                            className="glass-card" 
+                            style={{ background: 'rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', cursor: 'pointer', marginBottom: '8px' }}
+                        >
+                            <div>
+                                <h4 style={{ margin: '0 0 4px 0', fontSize: '13px', fontWeight: 'bold' }}>{trx.id}</h4>
+                                <p style={{ margin: 0, fontSize: '11px', color: '#888' }}>Metode: {trx.method || 'Pakasir.com'}</p>
+                                {trx.shipping_receipt && (
+                                    <div style={{ marginTop: '8px', display: 'flex', gap: '8px' }}>
+                                        <button 
+                                            onClick={(e) => { e.stopPropagation(); onCheckTracking(trx.shipping_receipt, trx.shipping_courier); }}
+                                            style={{ padding: '6px 12px', background: 'rgba(0,230,118,0.1)', border: '1px solid #00E676', color: '#00E676', borderRadius: '6px', fontSize: '10px', fontWeight: 'bold', cursor: 'pointer' }}
+                                        >
+                                            Cek Resi
+                                        </button>
+                                        <div style={{ fontSize: '10px', color: '#AAA', alignSelf: 'center' }}>{trx.shipping_receipt}</div>
+                                    </div>
+                                )}
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <div style={{ width: '8px', height: '8px', background: trx.delivery_status === 'Delivered' ? '#00E676' : '#FFD700', borderRadius: '50%' }}></div>
+                                <span style={{ fontSize: '11px', fontWeight: 'bold', color: trx.delivery_status === 'Delivered' ? '#00E676' : '#FFD700' }}>{trx.delivery_status || 'Processing'}</span>
+                            </div>
+                        </div>
+                    )) : (
+                        <div className="glass-card" style={{ padding: '16px', textAlign: 'center', background: 'rgba(255,255,255,0.02)' }}>
+                            <p style={{ color: '#666', fontSize: '13px', margin: 0 }}>Belum ada pesanan aktif saat ini.</p>
+                        </div>
+                    )}
+                </div>
 
                 <div onClick={() => setActiveTab('notifications')} className="glass-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', cursor: 'pointer' }}>
                     <span style={{ fontWeight: '500' }}>Pengaturan Notifikasi</span>
