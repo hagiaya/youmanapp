@@ -560,7 +560,9 @@ const StoreView = ({ onBack, userId }) => {
         bank_account_name: 'PT YOUMAN NUSANTARA',
         qris_url: 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=YOUMAN-PAYMENT',
         pakasir_enabled: true,
-        qris_enabled: true
+        qris_enabled: true,
+        xendit_enabled: false,
+        xendit_api_key: ''
     });
 
     useEffect(() => {
@@ -617,8 +619,46 @@ const StoreView = ({ onBack, userId }) => {
             if (paymentMethod === 'pakasir') {
                 alert(`Pesanan melalui Pakasir.com telah dibuat!\n\nOrder ID: ${transactionId}\nSilakan hubungi Admin atau cek dashboard Pakasir untuk penyelesaian pembayaran otomatis.`);
             } else if (paymentMethod === 'xendit') {
-                alert(`Redirecting ke Xendit...\n\nSistem Xendit akan segera memproses pembayaran Anda secara instan.`);
-                // Di sini biasanya redirect ke Xendit Invoice URL
+                if (!paymentSettings.xendit_api_key) {
+                    alert('Sistem Xendit belum dikonfigurasi. Hubungi Admin.');
+                    setLoading(false);
+                    return;
+                }
+                
+                try {
+                    const amountToPay = checkoutProduct.is_promo && checkoutProduct.discount_price ? checkoutProduct.discount_price : checkoutProduct.price;
+                    const response = await fetch('https://api.xendit.co/v2/invoices', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Basic ' + btoa(paymentSettings.xendit_api_key + ':')
+                        },
+                        body: JSON.stringify({
+                            external_id: transactionId,
+                            amount: amountToPay,
+                            description: 'Pesanan: ' + checkoutProduct.name,
+                            customer: {
+                                given_names: 'User YOUMAN',
+                                email: 'customer@youman.id'
+                            },
+                            success_redirect_url: window.location.href,
+                            failure_redirect_url: window.location.href,
+                            currency: 'IDR'
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (response.ok && data.invoice_url) {
+                        alert(`Redirecting ke Xendit...\n\nSistem Xendit akan segera memproses pembayaran Anda secara instan.`);
+                        // Buka popup atau redirect
+                        window.location.href = data.invoice_url;
+                    } else {
+                        alert(`Gagal membuat invoice Xendit: ${data.message || 'Periksa API Key dan pengaturan'}`);
+                    }
+                } catch (err) {
+                    alert('Gangguan koneksi ke Xendit: ' + err.message);
+                }
             } else {
                 alert(`Pemesanan berhasil diajukan dan sedang diproses!\n\nOrder ID: ${transactionId}\nAdmin kami akan segera memverifikasi bukti pembayaran Anda dalam waktu maksimal 1x24 Jam.`);
             }
