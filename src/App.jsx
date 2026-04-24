@@ -554,14 +554,7 @@ const StoreView = ({ onBack, userId }) => {
     const [proofFile, setProofFile] = useState(null);
 
     const [paymentSettings, setPaymentSettings] = useState({
-        manual_transfer_enabled: true,
-        bank_name: 'BCA',
-        bank_account_number: '1234 5678 90',
-        bank_account_name: 'PT YOUMAN NUSANTARA',
-        qris_url: 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=YOUMAN-PAYMENT',
-        pakasir_enabled: true,
-        qris_enabled: true,
-        xendit_enabled: false,
+        xendit_enabled: true,
         xendit_api_key: ''
     });
 
@@ -570,104 +563,79 @@ const StoreView = ({ onBack, userId }) => {
         supabase.from('products').select('*').eq('status', 'Active').then(({ data }) => {
             if (data && data.length > 0) setProducts(data);
         });
-
-        // Fetch payment settings
-        supabase.from('settings').select('*').eq('id', 'payment_settings').single().then(({ data }) => {
-            if (data) setPaymentSettings(data.value);
-        });
     }, []);
 
     const handleConfirmPayment = async () => {
-        if ((paymentMethod === 'transfer' || paymentMethod === 'qris') && !proofFile) {
-            alert('Harap unggah bukti pembayaran Anda terlebih dahulu agar pesanan dapat diproses oleh sistem.');
-            return;
-        }
-
         setLoading(true);
         try {
             const transactionId = `TRX-${Date.now().toString().slice(-6)}`;
+            const userName = localStorage.getItem('youman_user_name') || 'User YOUMAN';
             
-            let methodLabel = '';
-            let status = 'Menunggu Konfirmasi';
-            if (paymentMethod === 'transfer') methodLabel = 'Manual Transfer';
-            else if (paymentMethod === 'qris') methodLabel = 'QRIS';
-            else if (paymentMethod === 'pakasir') {
-                methodLabel = 'Pakasir.com';
-                status = 'Pending';
-            } else if (paymentMethod === 'xendit') {
-                methodLabel = 'Xendit Gateway';
-                status = 'Pending';
-            }
+            const amountToPay = checkoutProduct.is_promo && checkoutProduct.discount_price ? checkoutProduct.discount_price : checkoutProduct.price;
 
-            // Simpan transaksi di Supabase
-            await supabase.from('transactions').insert({
+            // 1. Simpan transaksi di Supabase dengan status Pending
+            const { error: insertError } = await supabase.from('transactions').insert({
                 id: transactionId,
                 user_id: userId,
-                user_name: 'User YOUMAN',
-                amount: checkoutProduct.is_promo && checkoutProduct.discount_price ? checkoutProduct.discount_price : checkoutProduct.price,
-                status: status,
-                method: methodLabel,
+                user_name: userName,
+                amount: amountToPay,
+                status: 'Pending',
+                method: 'Xendit Gateway',
                 delivery_status: 'Processing',
                 items: [{ 
                     id: checkoutProduct.id, 
                     name: checkoutProduct.name, 
-                    price: checkoutProduct.is_promo && checkoutProduct.discount_price ? checkoutProduct.discount_price : checkoutProduct.price, 
+                    price: amountToPay, 
                     quantity: 1 
                 }]
             });
 
-            if (paymentMethod === 'pakasir') {
-                alert(`Pesanan melalui Pakasir.com telah dibuat!\n\nOrder ID: ${transactionId}\nSilakan hubungi Admin atau cek dashboard Pakasir untuk penyelesaian pembayaran otomatis.`);
-            } else if (paymentMethod === 'xendit') {
-                const XENDIT_API_KEY = 'xnd_production_o1u7XXBaXExWBpfS8mdgtsaL6qdNPLjUykkPhkQ259EX7cnFKaxTpAo6pBESk7k9';
-                
-                try {
-                    const amountToPay = checkoutProduct.is_promo && checkoutProduct.discount_price ? checkoutProduct.discount_price : checkoutProduct.price;
-                    const response = await fetch('https://api.xendit.co/v2/invoices', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': 'Basic ' + btoa(XENDIT_API_KEY + ':')
-                        },
-                        body: JSON.stringify({
-                            external_id: transactionId,
-                            amount: amountToPay,
-                            description: 'Pesanan: ' + checkoutProduct.name,
-                            customer: {
-                                given_names: 'User YOUMAN',
-                                email: 'customer@youman.id'
-                            },
-                            success_redirect_url: window.location.href,
-                            failure_redirect_url: window.location.href,
-                            currency: 'IDR'
-                        })
-                    });
-                    
-                    const data = await response.json();
-                    
-                    if (response.ok && data.invoice_url) {
-                        alert(`Redirecting ke Xendit...\n\nSistem Xendit akan segera memproses pembayaran Anda secara instan.`);
-                        // Buka popup atau redirect
-                        window.location.href = data.invoice_url;
-                    } else {
-                        alert(`Gagal membuat invoice Xendit: ${data.message || 'Periksa API Key dan pengaturan'}`);
-                    }
-                } catch (err) {
-                    alert('Gangguan koneksi ke Xendit: ' + err.message);
-                }
-            } else {
-                alert(`Pemesanan berhasil diajukan dan sedang diproses!\n\nOrder ID: ${transactionId}\nAdmin kami akan segera memverifikasi bukti pembayaran Anda dalam waktu maksimal 1x24 Jam.`);
+            if (insertError) {
+                console.error('Supabase Insert Error:', insertError);
+                throw new Error(`Gagal mencatat pesanan: ${insertError.message}`);
             }
-            onBack();
+
+            // 2. Buat Invoice Xendit
+            const XENDIT_API_KEY = 'xnd_production_o1u7XXBaXExWBpfS8mdgtsaL6qdNPLjUykkPhkQ259EX7cnFKaxTpAo6pBESk7k9';
+            
+            const response = await fetch('https://api.xendit.co/v2/invoices', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Basic ' + btoa(XENDIT_API_KEY + ':')
+                },
+                body: JSON.stringify({
+                    external_id: transactionId,
+                    amount: amountToPay,
+                    description: 'Pesanan YOUMAN: ' + checkoutProduct.name,
+                    customer: {
+                        given_names: userName,
+                        email: 'customer@youman.id'
+                    },
+                    success_redirect_url: window.location.href,
+                    failure_redirect_url: window.location.href,
+                    currency: 'IDR'
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok && data.invoice_url) {
+                // Beri sedikit feedback sebelum redirect
+                alert(`Pesanan dibuat! Anda akan dialihkan ke gerbang pembayaran aman Xendit.`);
+                window.location.href = data.invoice_url;
+            } else {
+                throw new Error(data.message || 'Gagal menghubungi Xendit');
+            }
         } catch (e) {
-            alert('Gagal memproses pemesanan: ' + e.message);
+            alert('Kesalahan Pembayaran: ' + e.message);
         } finally {
             setLoading(false);
         }
     };
 
-    // Render Payment Method Selection
-    if (checkoutProduct && !paymentMethod) {
+    // Render Payment Confirmation
+    if (checkoutProduct) {
         return (
             <motion.div
                 initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
@@ -676,138 +644,43 @@ const StoreView = ({ onBack, userId }) => {
                 <button onClick={() => setCheckoutProduct(null)} style={{ background: 'none', border: 'none', color: '#FFF', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '24px', cursor: 'pointer' }}>
                     <ChevronLeft size={24} /> Batal & Kembali ke Store
                 </button>
-                <SectionHeader title="Metode Pembayaran" subtitle="Pilih cara bayar yang paling mudah bagi Anda." />
+                <SectionHeader title="Konfirmasi Pesanan" subtitle="Langkah terakhir untuk mendapatkan produk Anda." />
 
-                <div className="glass-card" style={{ marginBottom: '16px', padding: '16px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div className="glass-card" style={{ marginBottom: '24px', padding: '20px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                         <div>
-                            <div style={{ fontSize: '12px', color: '#888' }}>Total Tagihan</div>
-                            <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#00E676' }}>
-                                Rp {((checkoutProduct.is_promo && checkoutProduct.discount_price) ? checkoutProduct.discount_price : checkoutProduct.price).toLocaleString()}
-                            </div>
+                            <div style={{ fontSize: '12px', color: '#888' }}>Produk</div>
+                            <div style={{ fontSize: '16px', fontWeight: 'bold' }}>{checkoutProduct.name}</div>
                         </div>
                         <div style={{ textAlign: 'right' }}>
-                            <div style={{ fontSize: '14px', fontWeight: '600' }}>{checkoutProduct.name}</div>
-                        </div>
-                    </div>
-                </div>
-
-                <div style={{ display: 'grid', gap: '12px' }}>
-                    <div 
-                        onClick={() => setPaymentMethod('xendit')}
-                        className="glass-card" 
-                        style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '16px', cursor: 'pointer', border: '1px solid rgba(82, 77, 212, 0.2)' }}
-                    >
-                        <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(82, 77, 212, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <CreditCard color="#524DD4" />
-                        </div>
-                        <div style={{ flex: 1 }}>
-                            <div style={{ fontWeight: '600', color: '#524DD4' }}>Xendit (Virtual Account/E-wallet)</div>
-                            <div style={{ fontSize: '12px', color: '#888' }}>Pembayaran instan tingkat enterprise</div>
-                        </div>
-                        <ChevronRight size={18} color="#524DD4" />
-                    </div>
-                </div>
-            </motion.div>
-        );
-    }
-
-    // Render Payment Instructions
-    if (checkoutProduct && paymentMethod) {
-        return (
-            <motion.div
-                initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
-                style={{ paddingBottom: '100px' }}
-            >
-                <button onClick={() => { setPaymentMethod(null); setProofFile(null); }} style={{ background: 'none', border: 'none', color: '#FFF', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '24px', cursor: 'pointer' }}>
-                    <ChevronLeft size={24} /> Ganti Metode Pembayaran
-                </button>
-                <SectionHeader 
-                    title={paymentMethod === 'transfer' ? "Transfer Bank" : (paymentMethod === 'qris' ? "QRIS Pay" : "Sistem Pakasir")} 
-                    subtitle="Selesaikan langkah terakhir pesanan Anda." 
-                />
-
-                {paymentMethod === 'transfer' && (
-                    <>
-                        <div className="glass-card" style={{ marginBottom: '16px', padding: '16px', background: 'rgba(0, 230, 118, 0.05)', border: '1px solid rgba(0, 230, 118, 0.2)' }}>
-                            <h3 style={{ margin: '0 0 12px 0', color: '#00E676', fontSize: '16px' }}>Instruksi Transfer</h3>
-                            <p style={{ margin: '0 0 12px 0', fontSize: '13px', color: '#CCC', lineHeight: '1.5' }}>
-                                Transfer tepat <strong>Rp {((checkoutProduct.is_promo && checkoutProduct.discount_price) ? checkoutProduct.discount_price : checkoutProduct.price).toLocaleString()}</strong> ke:
-                            </p>
-                            <div style={{ background: 'rgba(0, 0, 0, 0.4)', padding: '12px', borderRadius: '8px', textAlign: 'center' }}>
-                                <div style={{ fontSize: '12px', color: '#888', marginBottom: '4px' }}>{paymentSettings.bank_name}</div>
-                                <div style={{ fontSize: '20px', fontWeight: 'bold', letterSpacing: '2px', marginBottom: '4px' }}>{paymentSettings.bank_account_number}</div>
-                                <div style={{ fontSize: '12px', color: '#888' }}>a.n. {paymentSettings.bank_account_name}</div>
-                            </div>
-                        </div>
-                        
-                        <div className="glass-card" style={{ marginBottom: '24px', padding: '16px' }}>
-                            <h3 style={{ margin: '0 0 12px 0', fontSize: '16px' }}>Unggah Bukti Transfer</h3>
-                            <input 
-                                type="file" 
-                                accept="image/*"
-                                onChange={(e) => setProofFile(e.target.files[0])}
-                                style={{ width: '100%', padding: '12px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', color: '#FFF' }}
-                            />
-                        </div>
-                    </>
-                )}
-
-                {paymentMethod === 'qris' && (
-                    <>
-                        <div className="glass-card" style={{ marginBottom: '16px', padding: '16px', textAlign: 'center' }}>
-                            <h3 style={{ margin: '0 0 12px 0', fontSize: '16px' }}>Scan Kode QRIS</h3>
-                            <div style={{ background: '#FFF', padding: '16px', borderRadius: '12px', display: 'inline-block', marginBottom: '12px' }}>
-                                <img src={paymentSettings.qris_url} alt="QRIS" style={{ maxWidth: '180px', borderRadius: '8px' }} />
-                            </div>
-                            <p style={{ margin: 0, fontSize: '13px', color: '#AAA' }}>Scan menggunakan aplikasi e-wallet Anda.</p>
-                            <div style={{ marginTop: '8px', fontWeight: 'bold', fontSize: '18px', color: '#00E676' }}>
+                            <div style={{ fontSize: '12px', color: '#888' }}>Total</div>
+                            <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#00E676' }}>
                                 Rp {((checkoutProduct.is_promo && checkoutProduct.discount_price) ? checkoutProduct.discount_price : checkoutProduct.price).toLocaleString()}
                             </div>
                         </div>
-                        
-                        <div className="glass-card" style={{ marginBottom: '24px', padding: '16px' }}>
-                            <h3 style={{ margin: '0 0 12px 0', fontSize: '16px' }}>Unggah Bukti Scan</h3>
-                            <input 
-                                type="file" 
-                                accept="image/*"
-                                onChange={(e) => setProofFile(e.target.files[0])}
-                                style={{ width: '100%', padding: '12px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', color: '#FFF' }}
-                            />
-                        </div>
-                    </>
-                )}
-
-                {paymentMethod === 'pakasir' && (
-                    <div className="glass-card" style={{ marginBottom: '24px', padding: '24px', textAlign: 'center' }}>
-                        <Smartphone size={48} color="#00E676" style={{ marginBottom: '16px' }} />
-                        <h3 style={{ margin: '0 0 12px 0', fontSize: '18px' }}>Pintu Pembayaran Pakasir</h3>
-                        <p style={{ margin: '0 0 24px 0', fontSize: '14px', color: '#AAA', lineHeight: '1.6' }}>
-                            Anda akan diarahkan ke sistem Pakasir.com untuk menyelesaikan pembayaran secara instan menggunakan berbagai metode digital otomatis.
-                        </p>
-                        <div style={{ padding: '12px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', fontSize: '13px', color: '#888' }}>
-                            Klik tombol di bawah untuk integrasi langsung.
+                    </div>
+                    
+                    <div style={{ paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: '#888', fontSize: '13px' }}>
+                            <CreditCard size={18} />
+                            <span>Metode: <strong>Xendit (Pembayaran Instan)</strong></span>
                         </div>
                     </div>
-                )}
+                </div>
 
-                {paymentMethod === 'xendit' && (
-                    <div className="glass-card" style={{ marginBottom: '24px', padding: '24px', textAlign: 'center' }}>
-                        <CreditCard size={48} color="#524DD4" style={{ marginBottom: '16px' }} />
-                        <h3 style={{ margin: '0 0 12px 0', fontSize: '18px' }}>Xendit Payment Gateway</h3>
-                        <p style={{ margin: '0 0 24px 0', fontSize: '14px', color: '#AAA', lineHeight: '1.6' }}>
-                            Anda akan diarahkan ke invoice aman milik Xendit untuk memilih berbagai metode pembayaran otomatis (VA, Retail Outlet, E-Wallet).
-                        </p>
-                    </div>
-                )}
+                <div className="glass-card" style={{ marginBottom: '24px', padding: '16px', background: 'rgba(82, 77, 212, 0.05)', border: '1px solid rgba(82, 77, 212, 0.2)' }}>
+                    <p style={{ margin: 0, fontSize: '13px', color: '#CCC', lineHeight: '1.5' }}>
+                        Klik tombol di bawah untuk membayar. Anda akan diarahkan ke invoice aman milik Xendit untuk memilih metode pembayaran (E-Wallet, VA, atau QRIS).
+                    </p>
+                </div>
 
                 <button 
                     className="btn-primary" 
-                    style={{ width: '100%', background: '#00E676', color: '#000' }}
+                    style={{ width: '100%', background: '#524DD4', color: '#FFF', borderRadius: '12px', fontWeight: 'bold', padding: '16px' }}
                     onClick={handleConfirmPayment}
                     disabled={loading}
                 >
-                    {loading ? 'Memproses...' : (paymentMethod === 'pakasir' ? 'Buka Link Pakasir' : (paymentMethod === 'xendit' ? 'Bayar via Xendit' : 'Kirim Bukti Pembayaran'))}
+                    {loading ? 'Menghubungkan ke Xendit...' : 'Bayar Sekarang via Xendit'}
                 </button>
             </motion.div>
         );
@@ -1521,6 +1394,7 @@ export default function App() {
     const handleLoginSuccess = (userData) => {
         localStorage.setItem('youman_is_logged_in', 'true');
         localStorage.setItem('youman_user_id', userData.id);
+        localStorage.setItem('youman_user_name', userData.name || 'User YOUMAN');
         localStorage.setItem('youman_wake_up_time', userData.wake_up_time || '');
         localStorage.setItem('youman_workout_time', userData.workout_time || '');
         localStorage.setItem('youman_sleep_time', userData.sleep_time || '');
@@ -1614,6 +1488,16 @@ function AppContent({ onCheckTracking, onShowDetail }) {
     const [isAlarmActive, setIsAlarmActive] = useState(() => localStorage.getItem('youman_alarm_active') === 'true');
 
     useEffect(() => {
+        // Fetch user name if not in localStorage
+        const userId = localStorage.getItem('youman_user_id');
+        if (userId && !localStorage.getItem('youman_user_name')) {
+            supabase.from('users').select('name').eq('id', userId).single().then(({ data }) => {
+                if (data && data.name) {
+                    localStorage.setItem('youman_user_name', data.name);
+                }
+            });
+        }
+
         // Register Service Worker for PWA/Background support
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('/sw.js').then(reg => {
@@ -1629,7 +1513,6 @@ function AppContent({ onCheckTracking, onShowDetail }) {
                 allowLocalhostAsSecureOrigin: true, // For development
             });
             // Link user ID to OneSignal for targeted push
-            const userId = localStorage.getItem('youman_user_id');
             if (userId) {
                 OneSignal.setExternalUserId(userId);
             }

@@ -1,0 +1,42 @@
+
+> youmanapp@1.0.0 build
+> vite build
+
+vite v8.0.0 building client environment for production...
+[2Ktransforming...✓ 2736 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/registerSW.js                  0.13 kB
+dist/manifest.webmanifest           0.37 kB
+dist/index.html                     1.29 kB │ gzip:   0.64 kB
+dist/assets/index-Cs1n49Mv.css      9.56 kB │ gzip:   2.47 kB
+dist/assets/index-Dq-5L9ML.js   1,001.90 kB │ gzip: 287.05 kB
+
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 1.40s
+error during build:
+Error: 
+  Configure "workbox.maximumFileSizeToCacheInBytes" to change the limit: the default value is 2 MiB.
+  Check https://vite-pwa-org.netlify.app/guide/faq.html#missing-assets-from-sw-precache-manifest for more information.
+  Assets exceeding the limit:
+  - Youman App-06.png is 4.14 MB, and won't be precached.
+  - Youman App-05.png is 2.74 MB, and won't be precached.
+  - Youman App-04.png is 3.43 MB, and won't be precached.
+  - Youman App-03.png is 4.06 MB, and won't be precached.
+  - Youman App-02.png is 4.02 MB, and won't be precached.
+  - Youman App-01.png is 4.24 MB, and won't be precached.
+
+    at logWorkboxResult (file:///Users/rezalatandrang/Documents/Kantor/Pribadi/project/youmanapp/node_modules/vite-plugin-pwa/dist/chunk-G4TAN34B.js:44:13)
+    at generateServiceWorker (file:///Users/rezalatandrang/Documents/Kantor/Pribadi/project/youmanapp/node_modules/vite-plugin-pwa/dist/index.js:209:3)
+    at async _generateSW (file:///Users/rezalatandrang/Documents/Kantor/Pribadi/project/youmanapp/node_modules/vite-plugin-pwa/dist/index.js:234:5)
+    at async PluginContextImpl.handler (file:///Users/rezalatandrang/Documents/Kantor/Pribadi/project/youmanapp/node_modules/vite-plugin-pwa/dist/index.js:427:13)
+    at async plugin (file:///Users/rezalatandrang/Documents/Kantor/Pribadi/project/youmanapp/node_modules/rolldown/dist/shared/bindingify-input-options-Cu7pt6SZ.mjs:1324:4)
+    at async plugin.<computed> (file:///Users/rezalatandrang/Documents/Kantor/Pribadi/project/youmanapp/node_modules/rolldown/dist/shared/bindingify-input-options-Cu7pt6SZ.mjs:1570:12) {
+  code: 'PLUGIN_ERROR',
+  plugin: 'vite-plugin-pwa:build',
+  hook: 'closeBundle'
+}
