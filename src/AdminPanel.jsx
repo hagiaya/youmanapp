@@ -795,7 +795,7 @@ const TransactionsView = ({ showToast }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingId, setEditingId] = useState(null);
-    const [formData, setFormData] = useState({ user_name: '', amount: '', status: 'Pending', delivery_status: 'Processing', method: 'Manual', shipping_receipt: '', shipping_courier: 'jne', shipping_address: '', items: [] });
+    const [formData, setFormData] = useState({ user_name: '', user_phone: '', amount: '', status: 'Pending', delivery_status: 'Processing', method: 'Manual', shipping_receipt: '', shipping_courier: 'jne', shipping_address: '', items: [] });
 
     useEffect(() => {
         fetchTransactions();
@@ -827,6 +827,7 @@ const TransactionsView = ({ showToast }) => {
 
         const newTrxData = {
             user_name: formData.user_name,
+            user_phone: formData.user_phone,
             amount: Number(formData.amount),
             status: formData.status,
             delivery_status: formData.delivery_status,
@@ -853,7 +854,7 @@ const TransactionsView = ({ showToast }) => {
             showToast('Gagal menyimpan transaksi', 'error');
         }
 
-        setFormData({ user_name: '', amount: '', status: 'Pending', delivery_status: 'Processing', method: 'Manual', shipping_receipt: '', shipping_courier: 'jne', shipping_address: '', items: [] });
+        setFormData({ user_name: '', user_phone: '', amount: '', status: 'Pending', delivery_status: 'Processing', method: 'Manual', shipping_receipt: '', shipping_courier: 'jne', shipping_address: '', items: [] });
         setEditingId(null);
         setIsModalOpen(false);
     };
@@ -861,6 +862,7 @@ const TransactionsView = ({ showToast }) => {
     const handleEdit = (trx) => {
         setFormData({ 
             user_name: trx.user_name, 
+            user_phone: trx.user_phone || '',
             amount: trx.amount, 
             status: trx.status, 
             delivery_status: trx.delivery_status, 
@@ -894,7 +896,7 @@ const TransactionsView = ({ showToast }) => {
                 <div style={{ display: 'flex', gap: '12px' }}>
                     <button className="admin-btn admin-btn-outline" onClick={() => showToast('Mengekspor laporan...', 'success')}>Export CSV</button>
                     <button className="admin-btn admin-btn-primary" onClick={() => {
-                        setFormData({ user_name: '', amount: '', status: 'Pending', delivery_status: 'Processing', method: 'Manual', shipping_receipt: '', shipping_courier: 'jne', shipping_address: '', items: [] });
+                        setFormData({ user_name: '', user_phone: '', amount: '', status: 'Pending', delivery_status: 'Processing', method: 'Manual', shipping_receipt: '', shipping_courier: 'jne', shipping_address: '', items: [] });
                         setEditingId(null);
                         setIsModalOpen(true);
                     }}>
@@ -1027,6 +1029,10 @@ const TransactionsView = ({ showToast }) => {
                             <div className="admin-form-group">
                                 <label>Nama Pelanggan</label>
                                 <input type="text" className="admin-form-control" placeholder="Nama Pelanggan" value={formData.user_name} onChange={e => setFormData({ ...formData, user_name: e.target.value })} />
+                            </div>
+                            <div className="admin-form-group">
+                                <label>Nomor WhatsApp</label>
+                                <input type="text" className="admin-form-control" placeholder="Contoh: 0812..." value={formData.user_phone} onChange={e => setFormData({ ...formData, user_phone: e.target.value })} />
                             </div>
                             <div className="admin-form-group">
                                 <label>Total Nilai (Rp)</label>

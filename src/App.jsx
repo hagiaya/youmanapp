@@ -552,6 +552,8 @@ const StoreView = ({ onBack, userId }) => {
     ]);
     const [loading, setLoading] = useState(false);
     const [checkoutProduct, setCheckoutProduct] = useState(null);
+    const [recipientName, setRecipientName] = useState(localStorage.getItem('youman_user_name') || '');
+    const [recipientPhone, setRecipientPhone] = useState('');
     const [shippingAddress, setShippingAddress] = useState('');
     const [paymentMethod, setPaymentMethod] = useState(null); // 'transfer', 'qris', 'pakasir'
     const [proofFile, setProofFile] = useState(null);
@@ -569,13 +571,12 @@ const StoreView = ({ onBack, userId }) => {
     }, []);
 
     const handleConfirmPayment = async () => {
-        if (!shippingAddress.trim()) {
-            return alert('Mohon isi alamat pengiriman yang lengkap terlebih dahulu.');
+        if (!recipientName.trim() || !recipientPhone.trim() || !shippingAddress.trim()) {
+            return alert('Mohon isi Nama Penerima, No. WhatsApp, dan Alamat Pengiriman yang lengkap terlebih dahulu.');
         }
         setLoading(true);
         try {
             const transactionId = `TRX-${Date.now().toString().slice(-6)}`;
-            const userName = localStorage.getItem('youman_user_name') || 'User YOUMAN';
             
             const amountToPay = checkoutProduct.is_promo && checkoutProduct.discount_price ? checkoutProduct.discount_price : checkoutProduct.price;
 
@@ -583,7 +584,8 @@ const StoreView = ({ onBack, userId }) => {
             const { error: insertError } = await supabase.from('transactions').insert({
                 id: transactionId,
                 user_id: userId,
-                user_name: userName,
+                user_name: recipientName,
+                user_phone: recipientPhone,
                 amount: amountToPay,
                 status: 'Pending',
                 method: 'Xendit Gateway',
@@ -616,8 +618,9 @@ const StoreView = ({ onBack, userId }) => {
                     amount: amountToPay,
                     description: 'Pesanan YOUMAN: ' + checkoutProduct.name,
                     customer: {
-                        given_names: userName,
-                        email: 'customer@youman.id'
+                        given_names: recipientName,
+                        email: 'customer@youman.id',
+                        mobile_number: recipientPhone
                     },
                     success_redirect_url: window.location.href,
                     failure_redirect_url: window.location.href,
@@ -676,11 +679,32 @@ const StoreView = ({ onBack, userId }) => {
                 </div>
 
                 <div className="glass-card" style={{ marginBottom: '24px', padding: '16px', background: 'rgba(82, 77, 212, 0.05)', border: '1px solid rgba(82, 77, 212, 0.2)' }}>
-                    <h4 style={{ margin: '0 0 12px 0', fontSize: '14px', color: '#FFF' }}>Alamat Pengiriman</h4>
+                    <h4 style={{ margin: '0 0 12px 0', fontSize: '14px', color: '#FFF' }}>Informasi Penerima & Pengiriman</h4>
+                    
+                    <div style={{ marginBottom: '12px' }}>
+                        <input 
+                            type="text"
+                            value={recipientName}
+                            onChange={(e) => setRecipientName(e.target.value)}
+                            placeholder="Nama Lengkap Penerima"
+                            style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#FFF', padding: '12px', borderRadius: '8px', outline: 'none', fontSize: '13px' }}
+                        />
+                    </div>
+
+                    <div style={{ marginBottom: '12px' }}>
+                        <input 
+                            type="tel"
+                            value={recipientPhone}
+                            onChange={(e) => setRecipientPhone(e.target.value)}
+                            placeholder="Nomor WhatsApp"
+                            style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#FFF', padding: '12px', borderRadius: '8px', outline: 'none', fontSize: '13px' }}
+                        />
+                    </div>
+
                     <textarea 
                         value={shippingAddress}
                         onChange={(e) => setShippingAddress(e.target.value)}
-                        placeholder="Contoh: Jl. Jend. Sudirman No 1A, RT 01 RW 02, Kec. X, Kota Y, Kodepos 12345 (Patokan: Sebelah toko buku)"
+                        placeholder="Alamat Lengkap (Contoh: Jl. Sudirman No 1...)"
                         rows="4"
                         style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#FFF', padding: '12px', borderRadius: '8px', outline: 'none', resize: 'vertical', fontSize: '13px' }}
                     ></textarea>
@@ -1341,8 +1365,9 @@ const TransactionDetailModal = ({ isOpen, onClose, trx, onCheckTracking }) => {
 
                 {trx.shipping_address && (
                     <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '12px', padding: '16px', marginBottom: '24px' }}>
-                        <h4 style={{ fontSize: '13px', color: '#888', margin: '0 0 8px 0', textTransform: 'uppercase', letterSpacing: '1px' }}>Alamat Pengiriman</h4>
-                        <p style={{ margin: 0, fontSize: '14px', color: '#FFF', lineHeight: '1.5' }}>{trx.shipping_address}</p>
+                        <h4 style={{ fontSize: '13px', color: '#888', margin: '0 0 8px 0', textTransform: 'uppercase', letterSpacing: '1px' }}>Informasi Pengiriman</h4>
+                        <p style={{ margin: '0 0 4px 0', fontSize: '14px', color: '#FFF', fontWeight: 'bold' }}>{trx.user_name} {trx.user_phone ? `(${trx.user_phone})` : ''}</p>
+                        <p style={{ margin: 0, fontSize: '14px', color: '#AAA', lineHeight: '1.5' }}>{trx.shipping_address}</p>
                     </div>
                 )}
 
