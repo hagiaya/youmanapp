@@ -27,7 +27,9 @@ import {
     QrCode,
     Smartphone,
     Wallet,
-    Package
+    Package,
+    X,
+    Truck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
