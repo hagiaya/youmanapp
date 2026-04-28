@@ -552,6 +552,7 @@ const StoreView = ({ onBack, userId }) => {
     ]);
     const [loading, setLoading] = useState(false);
     const [checkoutProduct, setCheckoutProduct] = useState(null);
+    const [shippingAddress, setShippingAddress] = useState('');
     const [paymentMethod, setPaymentMethod] = useState(null); // 'transfer', 'qris', 'pakasir'
     const [proofFile, setProofFile] = useState(null);
 
@@ -568,6 +569,9 @@ const StoreView = ({ onBack, userId }) => {
     }, []);
 
     const handleConfirmPayment = async () => {
+        if (!shippingAddress.trim()) {
+            return alert('Mohon isi alamat pengiriman yang lengkap terlebih dahulu.');
+        }
         setLoading(true);
         try {
             const transactionId = `TRX-${Date.now().toString().slice(-6)}`;
@@ -584,6 +588,7 @@ const StoreView = ({ onBack, userId }) => {
                 status: 'Pending',
                 method: 'Xendit Gateway',
                 delivery_status: 'Processing',
+                shipping_address: shippingAddress,
                 items: [{ 
                     id: checkoutProduct.id, 
                     name: checkoutProduct.name, 
@@ -668,6 +673,17 @@ const StoreView = ({ onBack, userId }) => {
                             <span>Metode: <strong>Xendit (Pembayaran Instan)</strong></span>
                         </div>
                     </div>
+                </div>
+
+                <div className="glass-card" style={{ marginBottom: '24px', padding: '16px', background: 'rgba(82, 77, 212, 0.05)', border: '1px solid rgba(82, 77, 212, 0.2)' }}>
+                    <h4 style={{ margin: '0 0 12px 0', fontSize: '14px', color: '#FFF' }}>Alamat Pengiriman</h4>
+                    <textarea 
+                        value={shippingAddress}
+                        onChange={(e) => setShippingAddress(e.target.value)}
+                        placeholder="Contoh: Jl. Jend. Sudirman No 1A, RT 01 RW 02, Kec. X, Kota Y, Kodepos 12345 (Patokan: Sebelah toko buku)"
+                        rows="4"
+                        style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#FFF', padding: '12px', borderRadius: '8px', outline: 'none', resize: 'vertical', fontSize: '13px' }}
+                    ></textarea>
                 </div>
 
                 <div className="glass-card" style={{ marginBottom: '24px', padding: '16px', background: 'rgba(82, 77, 212, 0.05)', border: '1px solid rgba(82, 77, 212, 0.2)' }}>
@@ -1323,6 +1339,13 @@ const TransactionDetailModal = ({ isOpen, onClose, trx, onCheckTracking }) => {
                     </div>
                 </div>
 
+                {trx.shipping_address && (
+                    <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '12px', padding: '16px', marginBottom: '24px' }}>
+                        <h4 style={{ fontSize: '13px', color: '#888', margin: '0 0 8px 0', textTransform: 'uppercase', letterSpacing: '1px' }}>Alamat Pengiriman</h4>
+                        <p style={{ margin: 0, fontSize: '14px', color: '#FFF', lineHeight: '1.5' }}>{trx.shipping_address}</p>
+                    </div>
+                )}
+
                 {trx.shipping_receipt && (
                     <div style={{ background: 'rgba(0, 230, 118, 0.05)', border: '1px solid rgba(0, 230, 118, 0.1)', borderRadius: '12px', padding: '16px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
@@ -1364,14 +1387,26 @@ const TrackingModal = ({ isOpen, onClose, info, loading, resi, courier }) => {
                     </div>
                 ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                        <div style={{ borderLeft: '2px solid #00E676', paddingLeft: '16px', position: 'relative' }}>
-                            <div style={{ position: 'absolute', left: '-6px', top: 0, width: '10px', height: '10px', background: '#00E676', borderRadius: '50%' }}></div>
-                            <div style={{ fontWeight: 'bold', fontSize: '14px', marginBottom: '4px' }}>Pesanan Sedang Diproses</div>
-                            <div style={{ fontSize: '11px', color: '#666' }}>Sistem RajaOngkir sedang mengupdate data perjalanan paket Anda.</div>
-                        </div>
-                        <div style={{ borderLeft: '2px solid rgba(255,255,255,0.1)', paddingLeft: '16px', minHeight: '40px' }}>
-                            <div style={{ color: '#888', fontSize: '14px' }}>Menunggu Update Kurir...</div>
-                        </div>
+                        {info && info.manifest ? (
+                            info.manifest.map((m, idx) => (
+                                <div key={idx} style={{ borderLeft: idx === 0 ? '2px solid #00E676' : '2px solid rgba(255,255,255,0.1)', paddingLeft: '16px', position: 'relative' }}>
+                                    <div style={{ position: 'absolute', left: '-6px', top: 0, width: '10px', height: '10px', background: idx === 0 ? '#00E676' : '#666', borderRadius: '50%' }}></div>
+                                    <div style={{ fontWeight: 'bold', fontSize: '13px', marginBottom: '2px', color: idx === 0 ? '#FFF' : '#AAA' }}>{m.manifest_description}</div>
+                                    <div style={{ fontSize: '11px', color: '#666' }}>{m.manifest_date} {m.manifest_time} | {m.city_name}</div>
+                                </div>
+                            ))
+                        ) : (
+                            <>
+                                <div style={{ borderLeft: '2px solid #00E676', paddingLeft: '16px', position: 'relative' }}>
+                                    <div style={{ position: 'absolute', left: '-6px', top: 0, width: '10px', height: '10px', background: '#00E676', borderRadius: '50%' }}></div>
+                                    <div style={{ fontWeight: 'bold', fontSize: '14px', marginBottom: '4px' }}>Pesanan Sedang Diproses</div>
+                                    <div style={{ fontSize: '11px', color: '#666' }}>Sistem RajaOngkir sedang mengupdate data perjalanan paket Anda.</div>
+                                </div>
+                                <div style={{ borderLeft: '2px solid rgba(255,255,255,0.1)', paddingLeft: '16px', minHeight: '40px' }}>
+                                    <div style={{ color: '#888', fontSize: '14px' }}>Menunggu Update Kurir...</div>
+                                </div>
+                            </>
+                        )}
                         
                         <div style={{ marginTop: '12px' }}>
                             <a 
@@ -1418,14 +1453,23 @@ export default function App() {
         setTrackingCourier(courier);
         setIsTrackingModalOpen(true);
         setTrackingLoading(true);
+        setTrackingInfo(null);
         
         try {
-            // Simulasi fetch RajaOngkir
-            // Sebenarnya kita butuh API Key dan Proxy agar CORS tidak terblokir
-            setTimeout(() => {
-                setTrackingLoading(false);
-            }, 1500);
+            const response = await fetch(`/api/rajaongkir-tracking?waybill=${resi}&courier=${courier}`);
+            const data = await response.json();
+            
+            if (response.ok && data.rajaongkir && data.rajaongkir.status.code === 200) {
+                setTrackingInfo(data.rajaongkir.result);
+            } else {
+                console.error("Tracking error:", data);
+                // Fallback info if API error but still want to show the tracking modal external link
+                setTrackingInfo({ fallback: true });
+            }
         } catch(e) {
+            console.error("Tracking API error:", e);
+            setTrackingInfo({ fallback: true });
+        } finally {
             setTrackingLoading(false);
         }
     };

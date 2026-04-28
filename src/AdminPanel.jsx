@@ -795,7 +795,7 @@ const TransactionsView = ({ showToast }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingId, setEditingId] = useState(null);
-    const [formData, setFormData] = useState({ user_name: '', amount: '', status: 'Pending', delivery_status: 'Processing', method: 'Manual', shipping_receipt: '', shipping_courier: 'jne', items: [] });
+    const [formData, setFormData] = useState({ user_name: '', amount: '', status: 'Pending', delivery_status: 'Processing', method: 'Manual', shipping_receipt: '', shipping_courier: 'jne', shipping_address: '', items: [] });
 
     useEffect(() => {
         fetchTransactions();
@@ -832,7 +832,8 @@ const TransactionsView = ({ showToast }) => {
             delivery_status: formData.delivery_status,
             method: formData.method,
             shipping_receipt: formData.shipping_receipt,
-            shipping_courier: formData.shipping_courier
+            shipping_courier: formData.shipping_courier,
+            shipping_address: formData.shipping_address
         };
 
         try {
@@ -852,7 +853,7 @@ const TransactionsView = ({ showToast }) => {
             showToast('Gagal menyimpan transaksi', 'error');
         }
 
-        setFormData({ user_name: '', amount: '', status: 'Pending', delivery_status: 'Processing', method: 'Manual', shipping_receipt: '', shipping_courier: 'jne', items: [] });
+        setFormData({ user_name: '', amount: '', status: 'Pending', delivery_status: 'Processing', method: 'Manual', shipping_receipt: '', shipping_courier: 'jne', shipping_address: '', items: [] });
         setEditingId(null);
         setIsModalOpen(false);
     };
@@ -866,6 +867,7 @@ const TransactionsView = ({ showToast }) => {
             method: trx.method || 'Manual',
             shipping_receipt: trx.shipping_receipt || '',
             shipping_courier: trx.shipping_courier || 'jne',
+            shipping_address: trx.shipping_address || '',
             items: trx.items || []
         });
         setEditingId(trx.id);
@@ -892,7 +894,7 @@ const TransactionsView = ({ showToast }) => {
                 <div style={{ display: 'flex', gap: '12px' }}>
                     <button className="admin-btn admin-btn-outline" onClick={() => showToast('Mengekspor laporan...', 'success')}>Export CSV</button>
                     <button className="admin-btn admin-btn-primary" onClick={() => {
-                        setFormData({ user_name: '', amount: '', status: 'Pending', delivery_status: 'Processing', method: 'Manual', shipping_receipt: '', shipping_courier: 'jne', items: [] });
+                        setFormData({ user_name: '', amount: '', status: 'Pending', delivery_status: 'Processing', method: 'Manual', shipping_receipt: '', shipping_courier: 'jne', shipping_address: '', items: [] });
                         setEditingId(null);
                         setIsModalOpen(true);
                     }}>
@@ -1055,6 +1057,10 @@ const TransactionsView = ({ showToast }) => {
                                 <h4 style={{ margin: '0 0 12px 0', fontSize: '13px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                     <Truck size={14} /> INFORMASI PENGIRIMAN
                                 </h4>
+                                <div className="admin-form-group">
+                                    <label>Alamat Pengiriman</label>
+                                    <textarea rows="3" className="admin-form-control" placeholder="Alamat lengkap user..." value={formData.shipping_address} onChange={e => setFormData({ ...formData, shipping_address: e.target.value })}></textarea>
+                                </div>
                                 <div className="admin-form-group">
                                     <label>Kurir</label>
                                     <select className="admin-form-control" value={formData.shipping_courier} onChange={e => setFormData({ ...formData, shipping_courier: e.target.value })}>
