@@ -1194,10 +1194,14 @@ const ProfilView = ({ streak, bestStreak, onReset, setActiveTab, userId, onCheck
                                     </div>
                                 )}
                             </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <div style={{ width: '8px', height: '8px', background: trx.delivery_status === 'Delivered' ? '#00E676' : '#FFD700', borderRadius: '50%' }}></div>
-                                <span style={{ fontSize: '11px', fontWeight: 'bold', color: trx.delivery_status === 'Delivered' ? '#00E676' : '#FFD700' }}>{trx.delivery_status || 'Processing'}</span>
-                            </div>
+                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                 <div style={{ width: '8px', height: '8px', background: trx.delivery_status === 'Delivered' ? '#00E676' : '#FFD700', borderRadius: '50%' }}></div>
+                                 <span style={{ fontSize: '11px', fontWeight: 'bold', color: trx.delivery_status === 'Delivered' ? '#00E676' : '#FFD700' }}>
+                                     {trx.delivery_status === 'Processing' ? '📦 Dikemas' : 
+                                      trx.delivery_status === 'Shipped' ? '🚚 Dikirim' : 
+                                      trx.delivery_status === 'Delivered' ? '✅ Selesai' : trx.delivery_status || 'Diproses'}
+                                 </span>
+                             </div>
                         </div>
                     )) : (
                         <div className="glass-card" style={{ padding: '16px', textAlign: 'center', background: 'rgba(255,255,255,0.02)' }}>
@@ -1497,7 +1501,11 @@ const TransactionDetailModal = ({ isOpen, onClose, trx, onCheckTracking }) => {
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px', fontSize: '13px' }}>
                         <span style={{ color: '#888' }}>Status Pengiriman</span>
-                        <span style={{ fontWeight: 'bold', color: '#FFF' }}>{trx.delivery_status}</span>
+                        <span style={{ fontWeight: 'bold', color: '#FFF' }}>
+                            {trx.delivery_status === 'Processing' ? '📦 Sedang Dikemas' : 
+                             trx.delivery_status === 'Shipped' ? '🚚 Dalam Pengiriman' : 
+                             trx.delivery_status === 'Delivered' ? '✅ Sudah Diterima' : trx.delivery_status}
+                        </span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
                         <span style={{ color: '#888' }}>Metode</span>
@@ -1546,9 +1554,9 @@ const TransactionDetailModal = ({ isOpen, onClose, trx, onCheckTracking }) => {
                         </div>
                         <button 
                             onClick={() => { onClose(); onCheckTracking(trx.shipping_receipt, trx.shipping_courier); }}
-                            style={{ width: '100%', padding: '12px', background: '#00E676', color: '#000', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}
+                            style={{ width: '100%', padding: '14px', background: '#00E676', color: '#000', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
                         >
-                            Lacak Via RajaOngkir
+                            <Truck size={18} /> Lacak Status Pengiriman
                         </button>
                     </div>
                 )}
@@ -1575,16 +1583,16 @@ const TrackingModal = ({ isOpen, onClose, info, loading, resi, courier }) => {
                 {loading ? (
                     <div style={{ textAlign: 'center', padding: '40px' }}>
                         <div className="animate-spin" style={{ width: '32px', height: '32px', border: '3px solid rgba(255,255,255,0.1)', borderTopColor: '#00E676', borderRadius: '50%', margin: '0 auto 16px' }}></div>
-                        <p style={{ color: '#888' }}>Mencari data di RajaOngkir...</p>
+                        <p style={{ color: '#888' }}>Mencari data pengiriman...</p>
                     </div>
                 ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                        {info && info.manifest ? (
-                            info.manifest.map((m, idx) => (
+                        {info && info.history ? (
+                            info.history.map((m, idx) => (
                                 <div key={idx} style={{ borderLeft: idx === 0 ? '2px solid #00E676' : '2px solid rgba(255,255,255,0.1)', paddingLeft: '16px', position: 'relative' }}>
                                     <div style={{ position: 'absolute', left: '-6px', top: 0, width: '10px', height: '10px', background: idx === 0 ? '#00E676' : '#666', borderRadius: '50%' }}></div>
-                                    <div style={{ fontWeight: 'bold', fontSize: '13px', marginBottom: '2px', color: idx === 0 ? '#FFF' : '#AAA' }}>{m.manifest_description}</div>
-                                    <div style={{ fontSize: '11px', color: '#666' }}>{m.manifest_date} {m.manifest_time} | {m.city_name}</div>
+                                    <div style={{ fontWeight: 'bold', fontSize: '13px', marginBottom: '2px', color: idx === 0 ? '#FFF' : '#AAA' }}>{m.note || m.status}</div>
+                                    <div style={{ fontSize: '11px', color: '#666' }}>{m.updated_at || m.time}</div>
                                 </div>
                             ))
                         ) : (
@@ -1592,10 +1600,10 @@ const TrackingModal = ({ isOpen, onClose, info, loading, resi, courier }) => {
                                 <div style={{ borderLeft: '2px solid #00E676', paddingLeft: '16px', position: 'relative' }}>
                                     <div style={{ position: 'absolute', left: '-6px', top: 0, width: '10px', height: '10px', background: '#00E676', borderRadius: '50%' }}></div>
                                     <div style={{ fontWeight: 'bold', fontSize: '14px', marginBottom: '4px' }}>Pesanan Sedang Diproses</div>
-                                    <div style={{ fontSize: '11px', color: '#666' }}>Sistem RajaOngkir sedang mengupdate data perjalanan paket Anda.</div>
+                                    <div style={{ fontSize: '11px', color: '#666' }}>Kurir sedang menyiapkan paket Anda untuk dikirim.</div>
                                 </div>
                                 <div style={{ borderLeft: '2px solid rgba(255,255,255,0.1)', paddingLeft: '16px', minHeight: '40px' }}>
-                                    <div style={{ color: '#888', fontSize: '14px' }}>Menunggu Update Kurir...</div>
+                                    <div style={{ color: '#888', fontSize: '14px' }}>Menunggu Update Perjalanan...</div>
                                 </div>
                             </>
                         )}
@@ -1640,23 +1648,35 @@ export default function App() {
     const [trackingLoading, setTrackingLoading] = useState(false);
     const [trackingInfo, setTrackingInfo] = useState(null);
 
-    const handleCheckTracking = async (resi, courier) => {
-        setTrackingResi(resi);
+    const handleCheckTracking = async (waybill, courier) => {
+        setTrackingResi(waybill);
         setTrackingCourier(courier);
         setIsTrackingModalOpen(true);
         setTrackingLoading(true);
         setTrackingInfo(null);
         
         try {
-            const response = await fetch(`/api/rajaongkir-tracking?waybill=${resi}&courier=${courier}`);
+            // Priority: Biteship Detailed Tracking
+            const response = await fetch(`/api/biteship-tracking?waybill=${waybill}&courier=${courier}`);
             const data = await response.json();
             
-            if (response.ok && data.rajaongkir && data.rajaongkir.status.code === 200) {
-                setTrackingInfo(data.rajaongkir.result);
+            if (response.ok && data.success) {
+                setTrackingInfo(data);
             } else {
-                console.error("Tracking error:", data);
-                // Fallback info if API error but still want to show the tracking modal external link
-                setTrackingInfo({ fallback: true });
+                // Fallback to RajaOngkir if Biteship fails
+                const roRes = await fetch(`/api/rajaongkir-tracking?waybill=${waybill}&courier=${courier}`);
+                const roData = await roRes.json();
+                if (roRes.ok && roData.rajaongkir && roData.rajaongkir.status.code === 200) {
+                    setTrackingInfo({ 
+                        history: roData.rajaongkir.result.manifest.map(m => ({
+                            note: m.manifest_description,
+                            updated_at: `${m.manifest_date} ${m.manifest_time}`
+                        })),
+                        status: roData.rajaongkir.result.delivery_status.status
+                    });
+                } else {
+                    setTrackingInfo({ fallback: true });
+                }
             }
         } catch(e) {
             console.error("Tracking API error:", e);

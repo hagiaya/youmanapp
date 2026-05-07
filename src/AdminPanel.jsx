@@ -812,13 +812,12 @@ const TransactionsView = ({ showToast }) => {
             const baseUrl = window.location.hostname === 'localhost' ? 'https://youmanapp.vercel.app' : '';
             const res = await fetch(`${baseUrl}/api/biteship-maps?input=${encodeURIComponent(query)}`);
             const text = await res.text();
-            try {
+            if (!res.ok) {
                 const data = JSON.parse(text);
-                if (data.areas) setAreaResults(data.areas);
-            } catch (e) {
-                console.error('Invalid JSON from API:', text);
-                throw new Error('API returning non-JSON response. Make sure you are using "vercel dev" or check the production URL.');
+                throw new Error(data.message || `Error ${res.status}: Gagal memuat data.`);
             }
+            const data = JSON.parse(text);
+            if (data.areas) setAreaResults(data.areas);
         } catch (err) {
             console.error('Biteship Maps Error:', err);
             showToast(err.message, 'error');
@@ -845,7 +844,12 @@ const TransactionsView = ({ showToast }) => {
                     items: trx.items
                 })
             });
+            
             const data = await res.json();
+            
+            if (!res.ok) {
+                throw new Error(data.message || 'Gagal membuat pesanan di Biteship.');
+            }
             if (data.success) {
                 // Update Supabase
                 const { error } = await supabase.from('transactions').update({
