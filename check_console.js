@@ -9,7 +9,7 @@ const puppeteer = require('puppeteer');
 
   console.log('Navigating to local server...');
   try {
-    await page.goto('http://localhost:5173/mobile', { waitUntil: 'networkidle0' });
+    await page.goto('http://localhost:3000/mobile', { waitUntil: 'networkidle0' });
     console.log('Navigation complete. Checking page content...');
     
     // Check if #root is empty
