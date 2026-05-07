@@ -1324,21 +1324,41 @@ const AuthView = ({ onLoginSuccess }) => {
         setErrorMsg('');
 
         try {
-            const { data: existingUser } = await supabase.from('users').select('id').eq('email', formData.email).single();
+            // Basic validation
+            if (!formData.name || !formData.email || !formData.phone || !formData.password) {
+                throw new Error('Harap isi semua field utama (Nama, Email, WhatsApp, Password)!');
+            }
+
+            const { data: existingUser } = await supabase.from('users').select('id').eq('email', formData.email).maybeSingle();
             if (existingUser) throw new Error('Email sudah terdaftar!');
 
+            const ageValue = parseInt(formData.age);
+            if (isNaN(ageValue)) throw new Error('Usia harus berupa angka!');
+
             const { error } = await supabase.from('users').insert([{
-                name: formData.name, age: parseInt(formData.age), profession: formData.profession,
-                email: formData.email, phone: formData.phone, password: formData.password,
-                wake_up_time: formData.wake_up_time, workout_time: formData.workout_time,
-                focus_work_time: formData.focus_work_time, sleep_time: formData.sleep_time,
-                phone_verified: false, role: 'User'
+                name: formData.name, 
+                age: ageValue, 
+                profession: formData.profession || '-',
+                email: formData.email, 
+                phone: formData.phone, 
+                password: formData.password,
+                wake_up_time: formData.wake_up_time || '05:00', 
+                workout_time: formData.workout_time || '06:00',
+                focus_work_time: formData.focus_work_time || '09:00', 
+                sleep_time: formData.sleep_time || '22:00',
+                phone_verified: false, 
+                role: 'User'
             }]);
 
-            if (error) throw error;
+            if (error) {
+                console.error('Supabase Insert Error:', error);
+                throw new Error(`Gagal mendaftar: ${error.message}`);
+            }
+            
             alert('Pendaftaran berhasil! Akun Anda sedang menunggu verifikasi Admin agar bisa digunakan.');
             setOnboardingStep('login');
         } catch (err) {
+            console.error('Registration Error:', err);
             setErrorMsg(err.message);
         } finally {
             setLoading(false);
