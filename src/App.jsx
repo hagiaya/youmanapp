@@ -565,6 +565,7 @@ const StoreView = ({ onBack, userId }) => {
     const [selectedService, setSelectedService] = useState(null);
     const [shippingCost, setShippingCost] = useState(0);
     const [fetchingCost, setFetchingCost] = useState(false);
+    const [shippingError, setShippingError] = useState('');
     
     const [paymentMethod, setPaymentMethod] = useState(null); // 'transfer', 'qris', 'pakasir'
     const [proofFile, setProofFile] = useState(null);
@@ -601,6 +602,7 @@ const StoreView = ({ onBack, userId }) => {
     useEffect(() => {
         if (selectedArea && checkoutProduct) {
             setFetchingCost(true);
+            setShippingError('');
             const baseUrl = window.location.hostname === 'localhost' ? 'https://youmanapp.vercel.app' : '';
             fetch(`${baseUrl}/api/biteship-rates`, {
                 method: 'POST',
@@ -611,15 +613,22 @@ const StoreView = ({ onBack, userId }) => {
                     items: [{
                         name: checkoutProduct.name,
                         value: (checkoutProduct.is_promo && checkoutProduct.discount_price) ? checkoutProduct.discount_price : checkoutProduct.price,
-                        weight: 1000,
+                        weight: 500, // Reduced weight to be safer
                         quantity: 1
                     }]
                 })
             }).then(res => res.json()).then(data => {
-                if (data.pricing) {
+                if (data.pricing && data.pricing.length > 0) {
                     setShippingServices(data.pricing);
+                } else if (data.message) {
+                    setShippingError(data.message);
+                } else {
+                    setShippingError('Layanan kurir tidak tersedia untuk rute ini.');
                 }
-            }).catch(console.error).finally(() => setFetchingCost(false));
+            }).catch(err => {
+                console.error(err);
+                setShippingError('Terjadi kesalahan saat mengecek ongkir.');
+            }).finally(() => setFetchingCost(false));
         }
     }, [selectedArea, checkoutProduct]);
 
@@ -861,7 +870,9 @@ const StoreView = ({ onBack, userId }) => {
                             ))}
                         </div>
                     ) : selectedArea && (
-                        <div style={{ padding: '12px', textAlign: 'center', fontSize: '12px', color: '#FF5252' }}>Layanan kurir tidak tersedia ke lokasi ini.</div>
+                        <div style={{ padding: '12px', textAlign: 'center', fontSize: '12px', color: '#FF5252' }}>
+                            {shippingError || 'Layanan kurir tidak tersedia ke lokasi ini.'}
+                        </div>
                     )}
                 </div>
 

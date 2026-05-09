@@ -18,21 +18,29 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        origin_area_id,
+        origin_area_id: origin_area_id || 'IDNP3CL10DT42',
         destination_area_id,
-        couriers: 'jne,jnt,sicepat,tiki,anteraja,wahana',
+        couriers: 'jne,jnt,sicepat,tiki,anteraja,wahana,lion,ninja,grab,gojek',
         items: items || [{
           name: 'Produk Youman',
           description: 'Produk Kesehatan',
-          value: 299000,
-          weight: 1000,
+          value: 100000,
+          weight: 500,
           quantity: 1
         }]
       })
     });
 
     const data = await response.json();
-    res.status(response.status).json(data);
+    
+    if (!response.ok) {
+        return res.status(response.status).json({
+            message: data.message || 'Gagal mendapatkan ongkir dari Biteship',
+            errors: data.errors
+        });
+    }
+
+    res.status(200).json(data);
   } catch (error) {
     console.error('Biteship Error:', error.message);
     res.status(500).json({ message: 'Internal Server Error', error: error.message });
