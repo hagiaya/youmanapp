@@ -14,7 +14,13 @@ export default async function handler(req, res) {
         let apiKey = settingsData?.value?.rajaongkir_api_key || '';
         
         if (!apiKey) {
-            return res.status(500).json({ error: 'RajaOngkir API Key not configured in Admin settings' });
+            console.error('RajaOngkir API Key is missing in Supabase settings table.');
+            return res.status(200).json({ 
+                rajaongkir: { 
+                    status: { code: 400, description: 'API Key belum dikonfigurasi di Admin Panel' },
+                    results: [] 
+                } 
+            });
         }
 
         // Rajaongkir Basic/Pro/Starter URL

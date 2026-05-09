@@ -153,7 +153,7 @@ const DashboardView = ({ products }) => {
                 <div className="admin-card" style={{ padding: '24px 24px 0 24px' }}>
                     <h3 className="admin-card-title" style={{ marginBottom: '24px' }}>Grafik Pendapatan Mingguan</h3>
                     <div style={{ width: '100%', height: '300px' }}>
-                        <ResponsiveContainer width="100%" height="100%">
+                        <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                             <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                                 <defs>
                                     <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
@@ -826,6 +826,22 @@ const TransactionsView = ({ showToast }) => {
         }
     };
 
+    useEffect(() => {
+        if (isBiteshipModalOpen && biteshipTrx) {
+            if (biteshipTrx.shipping_area_id) {
+                setAreaQuery(biteshipTrx.shipping_area_id);
+                searchArea(biteshipTrx.shipping_area_id);
+            } else if (biteshipTrx.shipping_address) {
+                const parts = biteshipTrx.shipping_address.split(/[,\n]/);
+                const query = parts.length > 0 ? parts[parts.length - 1].trim() : '';
+                if (query.length >= 3) {
+                    setAreaQuery(query);
+                    searchArea(query);
+                }
+            }
+        }
+    }, [isBiteshipModalOpen, biteshipTrx]);
+
     const handleCreateBiteshipOrder = async (trx, area) => {
         setIsCreatingBiteshipOrder(true);
         try {
@@ -839,6 +855,7 @@ const TransactionsView = ({ showToast }) => {
                     destination_phone: trx.user_phone,
                     destination_address: trx.shipping_address,
                     destination_area_id: area.id,
+                    destination_postal_code: trx.shipping_postal_code || area.postal_code,
                     courier_company: trx.shipping_courier || 'jne',
                     courier_type: 'reg',
                     items: trx.items

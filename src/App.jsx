@@ -555,11 +555,10 @@ const StoreView = ({ onBack, userId }) => {
     const [recipientName, setRecipientName] = useState(localStorage.getItem('youman_user_name') || '');
     const [recipientPhone, setRecipientPhone] = useState('');
     const [shippingAddress, setShippingAddress] = useState('');
-    const [provinces, setProvinces] = useState([]);
-    const [cities, setCities] = useState([]);
-    const [selectedProvince, setSelectedProvince] = useState('');
-    const [selectedCity, setSelectedCity] = useState('');
-    const [courier, setCourier] = useState('jne');
+    const [areaQuery, setAreaQuery] = useState('');
+    const [areaResults, setAreaResults] = useState([]);
+    const [selectedArea, setSelectedArea] = useState(null);
+    const [isSearchingArea, setIsSearchingArea] = useState(false);
     const [shippingServices, setShippingServices] = useState([]);
     const [selectedService, setSelectedService] = useState(null);
     const [shippingCost, setShippingCost] = useState(0);
@@ -581,52 +580,50 @@ const StoreView = ({ onBack, userId }) => {
     }, []);
 
     useEffect(() => {
-        if (checkoutProduct && provinces.length === 0) {
-            fetch('/api/rajaongkir-regions').then(res => res.json()).then(data => {
-                if (data?.rajaongkir?.results) setProvinces(data.rajaongkir.results);
-            }).catch(console.error);
-        }
-    }, [checkoutProduct]);
+        const timer = setTimeout(() => {
+            if (areaQuery.length >= 3) {
+                setIsSearchingArea(true);
+                const baseUrl = window.location.hostname === 'localhost' ? 'https://youmanapp.vercel.app' : '';
+                fetch(`${baseUrl}/api/biteship-maps?input=${encodeURIComponent(areaQuery)}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.areas) setAreaResults(data.areas);
+                    })
+                    .catch(console.error)
+                    .finally(() => setIsSearchingArea(false));
+            }
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [areaQuery]);
 
     useEffect(() => {
-        if (selectedProvince) {
-            setCities([]);
-            setSelectedCity('');
-            setShippingServices([]);
-            setSelectedService(null);
-            setShippingCost(0);
-            fetch(`/api/rajaongkir-regions?province=${selectedProvince}`).then(res => res.json()).then(data => {
-                if (data?.rajaongkir?.results) setCities(data.rajaongkir.results);
-            }).catch(console.error);
-        }
-    }, [selectedProvince]);
-
-    useEffect(() => {
-        if (selectedCity && courier) {
+        if (selectedArea && checkoutProduct) {
             setFetchingCost(true);
-            setShippingServices([]);
-            setSelectedService(null);
-            setShippingCost(0);
-            fetch('/api/rajaongkir-cost', {
+            const baseUrl = window.location.hostname === 'localhost' ? 'https://youmanapp.vercel.app' : '';
+            fetch(`${baseUrl}/api/biteship-rates`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    origin: '152', // Jakarta Pusat default store origin
-                    destination: selectedCity,
-                    weight: 1000, // 1kg
-                    courier: courier
+                    origin_area_id: 'IDNP3CL10DT42', // Jakarta Pusat
+                    destination_area_id: selectedArea.id,
+                    items: [{
+                        name: checkoutProduct.name,
+                        value: (checkoutProduct.is_promo && checkoutProduct.discount_price) ? checkoutProduct.discount_price : checkoutProduct.price,
+                        weight: 1000,
+                        quantity: 1
+                    }]
                 })
             }).then(res => res.json()).then(data => {
-                if (data?.rajaongkir?.results?.[0]?.costs) {
-                    setShippingServices(data.rajaongkir.results[0].costs);
+                if (data.pricing) {
+                    setShippingServices(data.pricing);
                 }
             }).catch(console.error).finally(() => setFetchingCost(false));
         }
-    }, [selectedCity, courier]);
+    }, [selectedArea, checkoutProduct]);
 
     const handleConfirmPayment = async () => {
-        if (!recipientName.trim() || !recipientPhone.trim() || !shippingAddress.trim() || !selectedCity || !selectedService) {
-            return alert('Mohon lengkapi Nama, WhatsApp, Alamat Pengiriman, Kota, dan pilih Layanan Pengiriman (Ongkir).');
+        if (!recipientName.trim() || !recipientPhone.trim() || !shippingAddress.trim() || !selectedArea || !selectedService) {
+            return alert('Mohon lengkapi Nama, WhatsApp, Alamat Lengkap, Lokasi (Kecamatan), dan pilih Layanan Pengiriman.');
         }
         setLoading(true);
         try {
@@ -646,8 +643,10 @@ const StoreView = ({ onBack, userId }) => {
                 method: 'Xendit Gateway',
                 delivery_status: 'Processing',
                 shipping_address: shippingAddress,
-                shipping_courier: courier,
-                shipping_cost: shippingCost,
+                shipping_courier: selectedService.courier_company,
+                shipping_cost: selectedService.price,
+                shipping_area_id: selectedArea.id,
+                shipping_postal_code: selectedArea.postal_code,
                 items: [{ 
                     id: checkoutProduct.id, 
                     name: checkoutProduct.name, 
@@ -726,15 +725,15 @@ const StoreView = ({ onBack, userId }) => {
                             </div>
                         </div>
                     </div>
-                    {shippingCost > 0 && (
+                    {selectedService && (
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                             <div>
                                 <div style={{ fontSize: '12px', color: '#888' }}>Ongkos Kirim</div>
-                                <div style={{ fontSize: '14px' }}>{courier.toUpperCase()} - {selectedService?.service}</div>
+                                <div style={{ fontSize: '14px' }}>{selectedService.courier_name} - {selectedService.courier_service}</div>
                             </div>
                             <div style={{ textAlign: 'right' }}>
                                 <div style={{ fontSize: '16px', fontWeight: 'bold' }}>
-                                    Rp {shippingCost.toLocaleString()}
+                                    Rp {selectedService.price.toLocaleString()}
                                 </div>
                             </div>
                         </div>
@@ -781,79 +780,86 @@ const StoreView = ({ onBack, userId }) => {
                         />
                     </div>
 
-                    <div style={{ marginBottom: '12px', display: 'flex', gap: '8px' }}>
-                        <select 
-                            value={selectedProvince}
-                            onChange={(e) => setSelectedProvince(e.target.value)}
-                            style={{ flex: 1, boxSizing: 'border-box', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#FFF', padding: '12px', borderRadius: '8px', outline: 'none', fontSize: '13px' }}
-                        >
-                            <option value="" style={{ color: '#000' }}>Pilih Provinsi...</option>
-                            {provinces.map(p => <option key={p.province_id} value={p.province_id} style={{ color: '#000' }}>{p.province}</option>)}
-                        </select>
-                        <select 
-                            value={selectedCity}
-                            onChange={(e) => setSelectedCity(e.target.value)}
-                            disabled={!selectedProvince}
-                            style={{ flex: 1, boxSizing: 'border-box', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#FFF', padding: '12px', borderRadius: '8px', outline: 'none', fontSize: '13px', opacity: selectedProvince ? 1 : 0.5 }}
-                        >
-                            <option value="" style={{ color: '#000' }}>Pilih Kota/Kab...</option>
-                            {cities.map(c => <option key={c.city_id} value={c.city_id} style={{ color: '#000' }}>{c.type} {c.city_name}</option>)}
-                        </select>
+                    <div style={{ marginBottom: '12px', position: 'relative' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', padding: '0 12px' }}>
+                            <Search size={16} color="#888" />
+                            <input 
+                                type="text"
+                                value={areaQuery}
+                                onChange={(e) => {
+                                    setAreaQuery(e.target.value);
+                                    if (selectedArea) {
+                                        setSelectedArea(null);
+                                        setShippingServices([]);
+                                        setSelectedService(null);
+                                        setShippingCost(0);
+                                    }
+                                }}
+                                placeholder="Cari Kota / Kecamatan..."
+                                style={{ flex: 1, background: 'none', border: 'none', color: '#FFF', padding: '12px 8px', outline: 'none', fontSize: '13px' }}
+                            />
+                            {isSearchingArea && <Loader className="animate-spin" size={16} color="#00E676" />}
+                        </div>
+
+                        {areaResults.length > 0 && !selectedArea && (
+                            <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#1A1A1A', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', marginTop: '4px', zIndex: 100, maxHeight: '200px', overflowY: 'auto', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}>
+                                {areaResults.map((area, idx) => (
+                                    <div 
+                                        key={idx} 
+                                        onClick={() => {
+                                            setSelectedArea(area);
+                                            setAreaQuery(area.name);
+                                            setAreaResults([]);
+                                        }}
+                                        style={{ padding: '12px', borderBottom: '1px solid rgba(255,255,255,0.05)', cursor: 'pointer', fontSize: '13px' }}
+                                    >
+                                        <div style={{ fontWeight: 'bold' }}>{area.name}</div>
+                                        <div style={{ fontSize: '11px', color: '#888' }}>ID: {area.id}</div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
 
                     <textarea 
                         value={shippingAddress}
                         onChange={(e) => setShippingAddress(e.target.value)}
-                        placeholder="Detail Alamat (Contoh: Jl. Sudirman No 1, RT/RW, Kecamatan, Patokan)"
+                        placeholder="Alamat Lengkap (Jl. No Rumah, Blok, RT/RW)"
                         rows="3"
                         style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#FFF', padding: '12px', borderRadius: '8px', outline: 'none', resize: 'vertical', fontSize: '13px', marginBottom: '12px' }}
                     ></textarea>
 
-                    <div style={{ marginBottom: '12px' }}>
-                        <select 
-                            value={courier}
-                            onChange={(e) => setCourier(e.target.value)}
-                            style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#FFF', padding: '12px', borderRadius: '8px', outline: 'none', fontSize: '13px' }}
-                        >
-                            <option value="jne" style={{ color: '#000' }}>JNE</option>
-                            <option value="pos" style={{ color: '#000' }}>POS Indonesia</option>
-                            <option value="tiki" style={{ color: '#000' }}>TIKI</option>
-                            <option value="sicepat" style={{ color: '#000' }}>SiCepat</option>
-                            <option value="jnt" style={{ color: '#000' }}>J&T</option>
-                        </select>
-                    </div>
-
                     {fetchingCost ? (
-                        <div style={{ padding: '12px', textAlign: 'center', fontSize: '12px', color: '#888' }}>Mengecek ongkos kirim...</div>
+                        <div style={{ padding: '12px', textAlign: 'center', fontSize: '12px', color: '#888' }}>Mengecek layanan kurir...</div>
                     ) : shippingServices.length > 0 ? (
                         <div style={{ background: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: '8px' }}>
-                            <div style={{ fontSize: '12px', color: '#888', marginBottom: '8px' }}>Pilih Layanan Pengiriman:</div>
+                            <div style={{ fontSize: '12px', color: '#888', marginBottom: '8px' }}>Pilih Kurir & Layanan:</div>
                             {shippingServices.map((srv, idx) => (
                                 <div 
                                     key={idx} 
-                                    onClick={() => { setSelectedService(srv); setShippingCost(srv.cost[0].value); }}
+                                    onClick={() => { setSelectedService(srv); setShippingCost(srv.price); }}
                                     style={{ 
                                         padding: '12px', 
-                                        border: selectedService?.service === srv.service ? '1px solid #00E676' : '1px solid rgba(255,255,255,0.05)', 
+                                        border: selectedService?.courier_service === srv.courier_service ? '1px solid #00E676' : '1px solid rgba(255,255,255,0.05)', 
                                         borderRadius: '8px', 
                                         marginBottom: '8px', 
                                         cursor: 'pointer',
-                                        background: selectedService?.service === srv.service ? 'rgba(0,230,118,0.1)' : 'transparent',
+                                        background: selectedService?.courier_service === srv.courier_service ? 'rgba(0,230,118,0.1)' : 'transparent',
                                         display: 'flex', justifyContent: 'space-between', alignItems: 'center'
                                     }}
                                 >
                                     <div>
-                                        <div style={{ fontWeight: 'bold', fontSize: '13px' }}>{srv.service} <span style={{ fontSize: '11px', fontWeight: 'normal', color: '#AAA' }}>({srv.cost[0].etd} hari)</span></div>
-                                        <div style={{ fontSize: '11px', color: '#888' }}>{srv.description}</div>
+                                        <div style={{ fontWeight: 'bold', fontSize: '13px' }}>{srv.courier_name} - {srv.courier_service}</div>
+                                        <div style={{ fontSize: '11px', color: '#888' }}>Estimasi: {srv.duration}</div>
                                     </div>
                                     <div style={{ fontWeight: 'bold', color: '#00E676', fontSize: '14px' }}>
-                                        Rp {srv.cost[0].value.toLocaleString()}
+                                        Rp {srv.price.toLocaleString()}
                                     </div>
                                 </div>
                             ))}
                         </div>
-                    ) : selectedCity && (
-                        <div style={{ padding: '12px', textAlign: 'center', fontSize: '12px', color: '#FF5252' }}>Layanan kurir tidak tersedia ke kota tersebut, coba kurir lain.</div>
+                    ) : selectedArea && (
+                        <div style={{ padding: '12px', textAlign: 'center', fontSize: '12px', color: '#FF5252' }}>Layanan kurir tidak tersedia ke lokasi ini.</div>
                     )}
                 </div>
 

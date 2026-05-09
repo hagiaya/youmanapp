@@ -71,10 +71,11 @@ export default async function handler(req, res) {
         origin_contact_phone: '08123456789',
         origin_address: 'Jakarta Pusat, DKI Jakarta', // Default origin
         origin_area_id: origin_area_id || 'IDNP3CL10DT42', // Default Jakarta Pusat
-        destination_contact_name: destination_name,
+        destination_contact_name: destination_name || 'Pelanggan Youman',
         destination_contact_phone: destination_phone || '08123456789',
-        destination_address: destination_address,
+        destination_address: destination_address || 'Alamat tidak lengkap (Hubungi Admin)',
         destination_area_id: destination_area_id,
+        destination_postal_code: destination_postal_code || undefined,
         courier_company: courier_company || 'jne',
         courier_type: courier_type || 'reg',
         delivery_type: 'now',
