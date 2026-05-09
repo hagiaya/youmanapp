@@ -29,7 +29,9 @@ import {
     Wallet,
     Package,
     X,
-    Truck
+    Truck,
+    Search,
+    Loader
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
