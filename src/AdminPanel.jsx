@@ -847,31 +847,32 @@ const TransactionsView = ({ showToast }) => {
             
             const data = await res.json();
             
-            if (!res.ok) {
-                throw new Error(data.message || 'Gagal membuat pesanan di Biteship.');
+            if (!res.ok || !data.success) {
+                const errorMsg = data.error || data.message || (typeof data === 'string' ? data : 'Gagal membuat pesanan di Biteship.');
+                throw new Error(errorMsg);
             }
-            if (data.success) {
-                // Update Supabase
-                const { error } = await supabase.from('transactions').update({
-                    delivery_status: 'Shipped',
-                    shipping_receipt: data.courier.tracking_id,
-                    shipping_area_id: area.id
-                }).eq('id', trx.id);
 
-                if (error) throw error;
+            // Update Supabase
+            const { error } = await supabase.from('transactions').update({
+                delivery_status: 'Shipped',
+                shipping_receipt: data.courier.tracking_id,
+                shipping_area_id: area.id
+            }).eq('id', trx.id);
 
-                setTransactions(transactions.map(t => t.id === trx.id ? { 
-                    ...t, 
-                    delivery_status: 'Shipped', 
-                    shipping_receipt: data.courier.tracking_id,
-                    shipping_area_id: area.id
-                } : t));
-                
-                showToast('Shipment created successfully via Biteship!', 'success');
-                setIsBiteshipModalOpen(false);
-            } else {
-                throw new Error(data.error || 'Failed to create Biteship order');
+            if (error) {
+                console.error('Supabase Update Error:', error);
+                throw new Error('Pesanan Biteship berhasil dibuat, tetapi gagal memperbarui database. Silakan masukkan resi secara manual: ' + data.courier.tracking_id);
             }
+
+            setTransactions(transactions.map(t => t.id === trx.id ? { 
+                ...t, 
+                delivery_status: 'Shipped', 
+                shipping_receipt: data.courier.tracking_id,
+                shipping_area_id: area.id
+            } : t));
+            
+            showToast('Shipment created successfully via Biteship!', 'success');
+            setIsBiteshipModalOpen(false);
         } catch (err) {
             console.error(err);
             showToast(err.message, 'error');

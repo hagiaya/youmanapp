@@ -35,6 +35,29 @@ export default async function handler(req, res) {
   } = req.body;
 
   try {
+    // Validate items - Biteship requires at least one item
+    const finalItems = (items && Array.isArray(items) && items.length > 0) 
+      ? items.map(item => ({
+          name: item.name || 'Produk Youman',
+          description: item.description || 'Kesehatan Maskulin',
+          value: Number(item.price || item.value || 299000),
+          weight: Number(item.weight || 1000),
+          quantity: Number(item.quantity || 1)
+        }))
+      : [{
+          name: 'Produk Youman',
+          description: 'Kesehatan Maskulin',
+          value: 299000,
+          weight: 1000,
+          quantity: 1
+        }];
+
+    console.log('Sending to Biteship:', {
+      order_id,
+      destination_area_id,
+      items: finalItems
+    });
+
     const response = await fetch('https://api.biteship.com/v1/orders', {
       method: 'POST',
       headers: {
@@ -49,27 +72,26 @@ export default async function handler(req, res) {
         origin_address: 'Jakarta Pusat, DKI Jakarta', // Default origin
         origin_area_id: origin_area_id || 'IDNP3CL10DT42', // Default Jakarta Pusat
         destination_contact_name: destination_name,
-        destination_contact_phone: destination_phone,
+        destination_contact_phone: destination_phone || '08123456789',
         destination_address: destination_address,
         destination_area_id: destination_area_id,
         courier_company: courier_company || 'jne',
         courier_type: courier_type || 'reg',
         delivery_type: 'now',
         reference_id: order_id,
-        items: items || [{
-          name: 'Produk Youman',
-          description: 'Kesehatan Maskulin',
-          value: 299000,
-          weight: 1000,
-          quantity: 1
-        }]
+        items: finalItems
       })
     });
 
     const data = await response.json();
+    console.log('Biteship API Response:', data);
     res.status(response.status).json(data);
   } catch (error) {
     console.error('Biteship Create Order Error:', error.message);
-    res.status(500).json({ message: 'Internal Server Error', error: error.message });
+    res.status(500).json({ 
+      success: false, 
+      message: 'Internal Server Error', 
+      error: error.message 
+    });
   }
 }
