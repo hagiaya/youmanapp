@@ -686,8 +686,6 @@ const StoreView = ({ onBack, userId }) => {
                             </div>
                         </div>
                     </div>
-                        </div>
-                    )}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '16px' }}>
                         <div>
                             <div style={{ fontSize: '14px', fontWeight: 'bold' }}>Total Pembayaran</div>
