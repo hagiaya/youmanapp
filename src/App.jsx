@@ -556,16 +556,12 @@ const StoreView = ({ onBack, userId }) => {
     const [checkoutProduct, setCheckoutProduct] = useState(null);
     const [recipientName, setRecipientName] = useState(localStorage.getItem('youman_user_name') || '');
     const [recipientPhone, setRecipientPhone] = useState('');
-    const [shippingAddress, setShippingAddress] = useState('');
-    const [areaQuery, setAreaQuery] = useState('');
-    const [areaResults, setAreaResults] = useState([]);
-    const [selectedArea, setSelectedArea] = useState(null);
-    const [isSearchingArea, setIsSearchingArea] = useState(false);
-    const [shippingServices, setShippingServices] = useState([]);
-    const [selectedService, setSelectedService] = useState(null);
-    const [shippingCost, setShippingCost] = useState(0);
-    const [fetchingCost, setFetchingCost] = useState(false);
-    const [shippingError, setShippingError] = useState('');
+    const [shippingProvince, setShippingProvince] = useState('');
+    const [shippingCity, setShippingCity] = useState('');
+    const [shippingDistrict, setShippingDistrict] = useState('');
+    const [shippingVillage, setShippingVillage] = useState('');
+    const [shippingStreet, setShippingStreet] = useState('');
+    const [shippingCost, setShippingCost] = useState(0); // Fixed or 0 for manual
     
     const [paymentMethod, setPaymentMethod] = useState(null); // 'transfer', 'qris', 'pakasir'
     const [proofFile, setProofFile] = useState(null);
@@ -582,59 +578,11 @@ const StoreView = ({ onBack, userId }) => {
         });
     }, []);
 
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            if (areaQuery.length >= 3) {
-                setIsSearchingArea(true);
-                const baseUrl = window.location.hostname === 'localhost' ? 'https://youmanapp.vercel.app' : '';
-                fetch(`${baseUrl}/api/biteship-maps?input=${encodeURIComponent(areaQuery)}`)
-                    .then(res => res.json())
-                    .then(data => {
-                        if (data.areas) setAreaResults(data.areas);
-                    })
-                    .catch(console.error)
-                    .finally(() => setIsSearchingArea(false));
-            }
-        }, 500);
-        return () => clearTimeout(timer);
-    }, [areaQuery]);
 
-    useEffect(() => {
-        if (selectedArea && checkoutProduct) {
-            setFetchingCost(true);
-            setShippingError('');
-            const baseUrl = window.location.hostname === 'localhost' ? 'https://youmanapp.vercel.app' : '';
-            fetch(`${baseUrl}/api/biteship-rates`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    origin_area_id: 'IDNP3CL10DT42', // Jakarta Pusat
-                    destination_area_id: selectedArea.id,
-                    items: [{
-                        name: checkoutProduct.name,
-                        value: (checkoutProduct.is_promo && checkoutProduct.discount_price) ? checkoutProduct.discount_price : checkoutProduct.price,
-                        weight: 500, // Reduced weight to be safer
-                        quantity: 1
-                    }]
-                })
-            }).then(res => res.json()).then(data => {
-                if (data.pricing && data.pricing.length > 0) {
-                    setShippingServices(data.pricing);
-                } else if (data.message) {
-                    setShippingError(data.message);
-                } else {
-                    setShippingError('Layanan kurir tidak tersedia untuk rute ini.');
-                }
-            }).catch(err => {
-                console.error(err);
-                setShippingError('Terjadi kesalahan saat mengecek ongkir.');
-            }).finally(() => setFetchingCost(false));
-        }
-    }, [selectedArea, checkoutProduct]);
 
     const handleConfirmPayment = async () => {
-        if (!recipientName.trim() || !recipientPhone.trim() || !shippingAddress.trim() || !selectedArea || !selectedService) {
-            return alert('Mohon lengkapi Nama, WhatsApp, Alamat Lengkap, Lokasi (Kecamatan), dan pilih Layanan Pengiriman.');
+        if (!recipientName.trim() || !recipientPhone.trim() || !shippingProvince.trim() || !shippingCity.trim() || !shippingDistrict.trim() || !shippingVillage.trim() || !shippingStreet.trim()) {
+            return alert('Mohon lengkapi Nama, WhatsApp, dan Alamat Lengkap (Provinsi, Kabupaten/Kota, Kecamatan/Kelurahan, Desa, Nama Jalan).');
         }
         setLoading(true);
         try {
@@ -642,6 +590,8 @@ const StoreView = ({ onBack, userId }) => {
             
             const productPrice = checkoutProduct.is_promo && checkoutProduct.discount_price ? checkoutProduct.discount_price : checkoutProduct.price;
             const amountToPay = productPrice + shippingCost;
+
+            const fullAddress = `${shippingStreet}, Desa/Kel: ${shippingVillage}, Kec: ${shippingDistrict}, Kab/Kota: ${shippingCity}, Prov: ${shippingProvince}`;
 
             // 1. Simpan transaksi di Supabase dengan status Pending
             const { error: insertError } = await supabase.from('transactions').insert({
@@ -652,12 +602,12 @@ const StoreView = ({ onBack, userId }) => {
                 amount: amountToPay,
                 status: 'Pending',
                 method: 'Xendit Gateway',
-                delivery_status: 'Processing',
-                shipping_address: shippingAddress,
-                shipping_courier: selectedService.courier_company,
-                shipping_cost: selectedService.price,
-                shipping_area_id: selectedArea.id,
-                shipping_postal_code: selectedArea.postal_code,
+                delivery_status: 'pengemasan',
+                shipping_address: fullAddress,
+                shipping_courier: 'Manual',
+                shipping_cost: 0,
+                shipping_area_id: null,
+                shipping_postal_code: null,
                 items: [{ 
                     id: checkoutProduct.id, 
                     name: checkoutProduct.name, 
@@ -736,17 +686,6 @@ const StoreView = ({ onBack, userId }) => {
                             </div>
                         </div>
                     </div>
-                    {selectedService && (
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                            <div>
-                                <div style={{ fontSize: '12px', color: '#888' }}>Ongkos Kirim</div>
-                                <div style={{ fontSize: '14px' }}>{selectedService.courier_name} - {selectedService.courier_service}</div>
-                            </div>
-                            <div style={{ textAlign: 'right' }}>
-                                <div style={{ fontSize: '16px', fontWeight: 'bold' }}>
-                                    Rp {selectedService.price.toLocaleString()}
-                                </div>
-                            </div>
                         </div>
                     )}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '16px' }}>
@@ -791,89 +730,53 @@ const StoreView = ({ onBack, userId }) => {
                         />
                     </div>
 
-                    <div style={{ marginBottom: '12px', position: 'relative' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', padding: '0 12px' }}>
-                            <Search size={16} color="#888" />
-                            <input 
-                                type="text"
-                                value={areaQuery}
-                                onChange={(e) => {
-                                    setAreaQuery(e.target.value);
-                                    if (selectedArea) {
-                                        setSelectedArea(null);
-                                        setShippingServices([]);
-                                        setSelectedService(null);
-                                        setShippingCost(0);
-                                    }
-                                }}
-                                placeholder="Cari Kota / Kecamatan..."
-                                style={{ flex: 1, background: 'none', border: 'none', color: '#FFF', padding: '12px 8px', outline: 'none', fontSize: '13px' }}
-                            />
-                            {isSearchingArea && <Loader className="animate-spin" size={16} color="#00E676" />}
-                        </div>
+                    <div style={{ marginBottom: '12px' }}>
+                        <input 
+                            type="text"
+                            value={shippingProvince}
+                            onChange={(e) => setShippingProvince(e.target.value)}
+                            placeholder="Provinsi"
+                            style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#FFF', padding: '12px', borderRadius: '8px', outline: 'none', fontSize: '13px' }}
+                        />
+                    </div>
 
-                        {areaResults.length > 0 && !selectedArea && (
-                            <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#1A1A1A', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', marginTop: '4px', zIndex: 100, maxHeight: '200px', overflowY: 'auto', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}>
-                                {areaResults.map((area, idx) => (
-                                    <div 
-                                        key={idx} 
-                                        onClick={() => {
-                                            setSelectedArea(area);
-                                            setAreaQuery(area.name);
-                                            setAreaResults([]);
-                                        }}
-                                        style={{ padding: '12px', borderBottom: '1px solid rgba(255,255,255,0.05)', cursor: 'pointer', fontSize: '13px' }}
-                                    >
-                                        <div style={{ fontWeight: 'bold' }}>{area.name}</div>
-                                        <div style={{ fontSize: '11px', color: '#888' }}>ID: {area.id}</div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
+                    <div style={{ marginBottom: '12px' }}>
+                        <input 
+                            type="text"
+                            value={shippingCity}
+                            onChange={(e) => setShippingCity(e.target.value)}
+                            placeholder="Kabupaten / Kota"
+                            style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#FFF', padding: '12px', borderRadius: '8px', outline: 'none', fontSize: '13px' }}
+                        />
+                    </div>
+
+                    <div style={{ marginBottom: '12px' }}>
+                        <input 
+                            type="text"
+                            value={shippingDistrict}
+                            onChange={(e) => setShippingDistrict(e.target.value)}
+                            placeholder="Kecamatan / Kelurahan"
+                            style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#FFF', padding: '12px', borderRadius: '8px', outline: 'none', fontSize: '13px' }}
+                        />
+                    </div>
+
+                    <div style={{ marginBottom: '12px' }}>
+                        <input 
+                            type="text"
+                            value={shippingVillage}
+                            onChange={(e) => setShippingVillage(e.target.value)}
+                            placeholder="Desa"
+                            style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#FFF', padding: '12px', borderRadius: '8px', outline: 'none', fontSize: '13px' }}
+                        />
                     </div>
 
                     <textarea 
-                        value={shippingAddress}
-                        onChange={(e) => setShippingAddress(e.target.value)}
-                        placeholder="Alamat Lengkap (Jl. No Rumah, Blok, RT/RW)"
+                        value={shippingStreet}
+                        onChange={(e) => setShippingStreet(e.target.value)}
+                        placeholder="Nama Jalan (Jl. No Rumah, Blok, RT/RW)"
                         rows="3"
                         style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#FFF', padding: '12px', borderRadius: '8px', outline: 'none', resize: 'vertical', fontSize: '13px', marginBottom: '12px' }}
                     ></textarea>
-
-                    {fetchingCost ? (
-                        <div style={{ padding: '12px', textAlign: 'center', fontSize: '12px', color: '#888' }}>Mengecek layanan kurir...</div>
-                    ) : shippingServices.length > 0 ? (
-                        <div style={{ background: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: '8px' }}>
-                            <div style={{ fontSize: '12px', color: '#888', marginBottom: '8px' }}>Pilih Kurir & Layanan:</div>
-                            {shippingServices.map((srv, idx) => (
-                                <div 
-                                    key={idx} 
-                                    onClick={() => { setSelectedService(srv); setShippingCost(srv.price); }}
-                                    style={{ 
-                                        padding: '12px', 
-                                        border: selectedService?.courier_service === srv.courier_service ? '1px solid #00E676' : '1px solid rgba(255,255,255,0.05)', 
-                                        borderRadius: '8px', 
-                                        marginBottom: '8px', 
-                                        cursor: 'pointer',
-                                        background: selectedService?.courier_service === srv.courier_service ? 'rgba(0,230,118,0.1)' : 'transparent',
-                                        display: 'flex', justifyContent: 'space-between', alignItems: 'center'
-                                    }}
-                                >
-                                    <div>
-                                        <div style={{ fontWeight: 'bold', fontSize: '13px' }}>{srv.courier_name} - {srv.courier_service}</div>
-                                        <div style={{ fontSize: '11px', color: '#888' }}>Estimasi: {srv.duration}</div>
-                                    </div>
-                                    <div style={{ fontWeight: 'bold', color: '#00E676', fontSize: '14px' }}>
-                                        Rp {srv.price.toLocaleString()}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    ) : selectedArea && (
-                        <div style={{ padding: '12px', textAlign: 'center', fontSize: '12px', color: '#FF5252' }}>
-                            {shippingError || 'Layanan kurir tidak tersedia ke lokasi ini.'}
-                        </div>
-                    )}
                 </div>
 
                 <div className="glass-card" style={{ marginBottom: '24px', padding: '16px', background: 'rgba(82, 77, 212, 0.05)', border: '1px solid rgba(82, 77, 212, 0.2)' }}>
@@ -1214,11 +1117,11 @@ const ProfilView = ({ streak, bestStreak, onReset, setActiveTab, userId, onCheck
                                 )}
                             </div>
                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                 <div style={{ width: '8px', height: '8px', background: trx.delivery_status === 'Delivered' ? '#00E676' : '#FFD700', borderRadius: '50%' }}></div>
-                                 <span style={{ fontSize: '11px', fontWeight: 'bold', color: trx.delivery_status === 'Delivered' ? '#00E676' : '#FFD700' }}>
-                                     {trx.delivery_status === 'Processing' ? '📦 Dikemas' : 
-                                      trx.delivery_status === 'Shipped' ? '🚚 Dikirim' : 
-                                      trx.delivery_status === 'Delivered' ? '✅ Selesai' : trx.delivery_status || 'Diproses'}
+                                 <div style={{ width: '8px', height: '8px', background: trx.delivery_status === 'sampai' ? '#00E676' : '#FFD700', borderRadius: '50%' }}></div>
+                                 <span style={{ fontSize: '11px', fontWeight: 'bold', color: trx.delivery_status === 'sampai' ? '#00E676' : '#FFD700' }}>
+                                     {trx.delivery_status === 'pengemasan' ? '📦 Dikemas' : 
+                                      trx.delivery_status === 'pengantaran' ? '🚚 Dikirim' : 
+                                      trx.delivery_status === 'sampai' ? '✅ Selesai' : trx.delivery_status || 'Diproses'}
                                  </span>
                              </div>
                         </div>
@@ -1521,9 +1424,9 @@ const TransactionDetailModal = ({ isOpen, onClose, trx, onCheckTracking }) => {
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px', fontSize: '13px' }}>
                         <span style={{ color: '#888' }}>Status Pengiriman</span>
                         <span style={{ fontWeight: 'bold', color: '#FFF' }}>
-                            {trx.delivery_status === 'Processing' ? '📦 Sedang Dikemas' : 
-                             trx.delivery_status === 'Shipped' ? '🚚 Dalam Pengiriman' : 
-                             trx.delivery_status === 'Delivered' ? '✅ Sudah Diterima' : trx.delivery_status}
+                            {trx.delivery_status === 'pengemasan' ? '📦 Sedang Dikemas' : 
+                             trx.delivery_status === 'pengantaran' ? '🚚 Dalam Pengiriman' : 
+                             trx.delivery_status === 'sampai' ? '✅ Sudah Diterima' : trx.delivery_status}
                         </span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>

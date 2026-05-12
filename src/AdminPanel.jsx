@@ -795,108 +795,7 @@ const TransactionsView = ({ showToast }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingId, setEditingId] = useState(null);
-    const [formData, setFormData] = useState({ user_name: '', user_phone: '', amount: '', status: 'Pending', delivery_status: 'Processing', method: 'Manual', shipping_receipt: '', shipping_courier: 'jne', shipping_address: '', shipping_area_id: '', items: [] });
-
-    // Biteship state
-    const [isBiteshipModalOpen, setIsBiteshipModalOpen] = useState(false);
-    const [biteshipTrx, setBiteshipTrx] = useState(null);
-    const [areaQuery, setAreaQuery] = useState('');
-    const [areaResults, setAreaResults] = useState([]);
-    const [isSearchingArea, setIsSearchingArea] = useState(false);
-    const [isCreatingBiteshipOrder, setIsCreatingBiteshipOrder] = useState(false);
-
-    const searchArea = async (query) => {
-        if (!query || query.length < 3) return;
-        setIsSearchingArea(true);
-        try {
-            const baseUrl = window.location.hostname === 'localhost' ? 'https://youmanapp.vercel.app' : '';
-            const res = await fetch(`${baseUrl}/api/biteship-maps?input=${encodeURIComponent(query)}`);
-            const text = await res.text();
-            if (!res.ok) {
-                const data = JSON.parse(text);
-                throw new Error(data.message || `Error ${res.status}: Gagal memuat data.`);
-            }
-            const data = JSON.parse(text);
-            if (data.areas) setAreaResults(data.areas);
-        } catch (err) {
-            console.error('Biteship Maps Error:', err);
-            showToast(err.message, 'error');
-        } finally {
-            setIsSearchingArea(false);
-        }
-    };
-
-    useEffect(() => {
-        if (isBiteshipModalOpen && biteshipTrx) {
-            if (biteshipTrx.shipping_area_id) {
-                setAreaQuery(biteshipTrx.shipping_area_id);
-                searchArea(biteshipTrx.shipping_area_id);
-            } else if (biteshipTrx.shipping_address) {
-                const parts = biteshipTrx.shipping_address.split(/[,\n]/);
-                const query = parts.length > 0 ? parts[parts.length - 1].trim() : '';
-                if (query.length >= 3) {
-                    setAreaQuery(query);
-                    searchArea(query);
-                }
-            }
-        }
-    }, [isBiteshipModalOpen, biteshipTrx]);
-
-    const handleCreateBiteshipOrder = async (trx, area) => {
-        setIsCreatingBiteshipOrder(true);
-        try {
-            const baseUrl = window.location.hostname === 'localhost' ? 'https://youmanapp.vercel.app' : '';
-            const res = await fetch(`${baseUrl}/api/biteship-create-order`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    order_id: trx.id,
-                    destination_name: trx.user_name,
-                    destination_phone: trx.user_phone,
-                    destination_address: trx.shipping_address,
-                    destination_area_id: area.id,
-                    destination_postal_code: trx.shipping_postal_code || area.postal_code,
-                    courier_company: trx.shipping_courier || 'jne',
-                    courier_type: 'reg',
-                    items: trx.items
-                })
-            });
-            
-            const data = await res.json();
-            
-            if (!res.ok || !data.success) {
-                const errorMsg = data.error || data.message || (typeof data === 'string' ? data : 'Gagal membuat pesanan di Biteship.');
-                throw new Error(errorMsg);
-            }
-
-            // Update Supabase
-            const { error } = await supabase.from('transactions').update({
-                delivery_status: 'Shipped',
-                shipping_receipt: data.courier.tracking_id,
-                shipping_area_id: area.id
-            }).eq('id', trx.id);
-
-            if (error) {
-                console.error('Supabase Update Error:', error);
-                throw new Error('Pesanan Biteship berhasil dibuat, tetapi gagal memperbarui database. Silakan masukkan resi secara manual: ' + data.courier.tracking_id);
-            }
-
-            setTransactions(transactions.map(t => t.id === trx.id ? { 
-                ...t, 
-                delivery_status: 'Shipped', 
-                shipping_receipt: data.courier.tracking_id,
-                shipping_area_id: area.id
-            } : t));
-            
-            showToast('Shipment created successfully via Biteship!', 'success');
-            setIsBiteshipModalOpen(false);
-        } catch (err) {
-            console.error(err);
-            showToast(err.message, 'error');
-        } finally {
-            setIsCreatingBiteshipOrder(false);
-        }
-    };
+    const [formData, setFormData] = useState({ user_name: '', user_phone: '', amount: '', status: 'Pending', delivery_status: 'pengemasan', method: 'Manual', shipping_receipt: '', shipping_courier: 'Manual', shipping_address: '', shipping_area_id: '', items: [] });
 
     useEffect(() => {
         fetchTransactions();
@@ -955,7 +854,7 @@ const TransactionsView = ({ showToast }) => {
             showToast('Gagal menyimpan transaksi', 'error');
         }
 
-        setFormData({ user_name: '', user_phone: '', amount: '', status: 'Pending', delivery_status: 'Processing', method: 'Manual', shipping_receipt: '', shipping_courier: 'jne', shipping_address: '', items: [] });
+        setFormData({ user_name: '', user_phone: '', amount: '', status: 'Pending', delivery_status: 'pengemasan', method: 'Manual', shipping_receipt: '', shipping_courier: 'Manual', shipping_address: '', items: [] });
         setEditingId(null);
         setIsModalOpen(false);
     };
@@ -966,10 +865,10 @@ const TransactionsView = ({ showToast }) => {
             user_phone: trx.user_phone || '',
             amount: trx.amount, 
             status: trx.status, 
-            delivery_status: trx.delivery_status, 
+            delivery_status: trx.delivery_status || 'pengemasan', 
             method: trx.method || 'Manual',
             shipping_receipt: trx.shipping_receipt || '',
-            shipping_courier: trx.shipping_courier || 'jne',
+            shipping_courier: trx.shipping_courier || 'Manual',
             shipping_address: trx.shipping_address || '',
             shipping_area_id: trx.shipping_area_id || '',
             items: trx.items || []
@@ -998,7 +897,7 @@ const TransactionsView = ({ showToast }) => {
                 <div style={{ display: 'flex', gap: '12px' }}>
                     <button className="admin-btn admin-btn-outline" onClick={() => showToast('Mengekspor laporan...', 'success')}>Export CSV</button>
                     <button className="admin-btn admin-btn-primary" onClick={() => {
-                        setFormData({ user_name: '', user_phone: '', amount: '', status: 'Pending', delivery_status: 'Processing', method: 'Manual', shipping_receipt: '', shipping_courier: 'jne', shipping_address: '', shipping_area_id: '', items: [] });
+                        setFormData({ user_name: '', user_phone: '', amount: '', status: 'Pending', delivery_status: 'pengemasan', method: 'Manual', shipping_receipt: '', shipping_courier: 'Manual', shipping_address: '', shipping_area_id: '', items: [] });
                         setEditingId(null);
                         setIsModalOpen(true);
                     }}>
@@ -1022,9 +921,9 @@ const TransactionsView = ({ showToast }) => {
                     </div>
                 </div>
                 <div className="admin-card" style={{ borderLeft: '4px solid #3b82f6' }}>
-                    <div className="admin-card-title">Dalam Pengiriman</div>
+                    <div className="admin-card-title">Dalam Pengantaran</div>
                     <div className="admin-card-value" style={{ fontSize: '24px', marginTop: '8px' }}>
-                        {isLoading ? <Loader className="animate-spin" size={20} /> : transactions.filter(t => t.delivery_status === 'Shipped').length}
+                        {isLoading ? <Loader className="animate-spin" size={20} /> : transactions.filter(t => t.delivery_status === 'pengantaran').length}
                     </div>
                 </div>
             </div>
@@ -1082,27 +981,12 @@ const TransactionsView = ({ showToast }) => {
                                         </span>
                                     </td>
                                     <td>
-                                        <span className={`admin-badge ${trx.delivery_status === 'Delivered' ? 'badge-success' : trx.delivery_status === 'Shipped' ? 'badge-primary' : 'badge-gray'}`}>
+                                        <span className={`admin-badge ${trx.delivery_status === 'sampai' ? 'badge-success' : trx.delivery_status === 'pengantaran' ? 'badge-primary' : 'badge-gray'}`}>
                                             <Truck size={12} style={{ marginRight: '4px' }} /> {trx.delivery_status}
                                         </span>
                                     </td>
                                     <td>
                                         <div style={{ display: 'flex', gap: '8px' }}>
-                                             {trx.status === 'Success' && trx.delivery_status !== 'Shipped' && trx.delivery_status !== 'Delivered' && (
-                                                <button 
-                                                    className="admin-btn admin-btn-primary" 
-                                                    style={{ padding: '6px', background: '#3b82f6', border: 'none' }} 
-                                                    title="Buat Pengiriman Biteship" 
-                                                    onClick={() => {
-                                                        setBiteshipTrx(trx);
-                                                        setAreaQuery('');
-                                                        setAreaResults([]);
-                                                        setIsBiteshipModalOpen(true);
-                                                    }}
-                                                >
-                                                    <Truck size={16} />
-                                                </button>
-                                             )}
                                             <button className="admin-btn admin-btn-outline" style={{ padding: '6px' }} title="Edit Transaksi" onClick={() => handleEdit(trx)}>
                                                 <Edit size={16} />
                                             </button>
@@ -1166,9 +1050,9 @@ const TransactionsView = ({ showToast }) => {
                             <div className="admin-form-group">
                                 <label>Progress Pengiriman</label>
                                 <select className="admin-form-control" value={formData.delivery_status} onChange={e => setFormData({ ...formData, delivery_status: e.target.value })}>
-                                    <option value="Processing">Processing</option>
-                                    <option value="Shipped">Shipped</option>
-                                    <option value="Delivered">Delivered</option>
+                                    <option value="pengemasan">Pengemasan</option>
+                                    <option value="pengantaran">Pengantaran</option>
+                                    <option value="sampai">Sampai</option>
                                 </select>
                             </div>
                             <div className="admin-form-group">
@@ -1185,47 +1069,20 @@ const TransactionsView = ({ showToast }) => {
                                     <textarea rows="3" className="admin-form-control" placeholder="Alamat lengkap user..." value={formData.shipping_address} onChange={e => setFormData({ ...formData, shipping_address: e.target.value })}></textarea>
                                 </div>
                                 <div className="admin-form-group">
-                                    <label>Kurir</label>
-                                    <select className="admin-form-control" value={formData.shipping_courier} onChange={e => setFormData({ ...formData, shipping_courier: e.target.value })}>
-                                        <option value="jne">JNE (Jalur Nugraha Ekakurir)</option>
-                                        <option value="pos">POS Indonesia</option>
-                                        <option value="tiki">TIKI (Citra Van Titipan Kilat)</option>
-                                        <option value="sicepat">SiCepat</option>
-                                        <option value="jnt">J&T Express</option>
-                                        <option value="anteraja">AnterAja</option>
-                                    </select>
+                                    <label>Kurir Ekspedisi</label>
+                                    <input type="text" className="admin-form-control" placeholder="Contoh: JNE, J&T, Sicepat" value={formData.shipping_courier} onChange={e => setFormData({ ...formData, shipping_courier: e.target.value })} />
                                 </div>
                                 <div className="admin-form-group">
-                                    <label>No. Resi Pengiriman</label>
-                                    <div style={{ display: 'flex', gap: '8px' }}>
-                                        <input 
-                                            type="text" 
-                                            className="admin-form-control" 
-                                            placeholder="Masukkan nomor resi" 
-                                            value={formData.shipping_receipt} 
-                                            onChange={e => setFormData({ ...formData, shipping_receipt: e.target.value })} 
-                                        />
-                                        {formData.status === 'Success' && (
-                                            <button 
-                                                className="admin-btn admin-btn-primary" 
-                                                style={{ whiteSpace: 'nowrap', fontSize: '12px', background: '#3b82f6', border: 'none' }}
-                                                onClick={() => {
-                                                    const trx = transactions.find(t => t.id === editingId);
-                                                    if (trx) {
-                                                        setBiteshipTrx(trx);
-                                                        setAreaQuery('');
-                                                        setAreaResults([]);
-                                                        setIsModalOpen(false);
-                                                        setIsBiteshipModalOpen(true);
-                                                    }
-                                                }}
-                                            >
-                                                <Truck size={14} style={{ marginRight: '4px' }} /> Biteship
-                                            </button>
-                                        )}
-                                    </div>
+                                    <label>No. Resi Pengiriman (Opsional)</label>
+                                    <input 
+                                        type="text" 
+                                        className="admin-form-control" 
+                                        placeholder="Masukkan nomor resi" 
+                                        value={formData.shipping_receipt} 
+                                        onChange={e => setFormData({ ...formData, shipping_receipt: e.target.value })} 
+                                    />
                                     <p style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>
-                                        {formData.shipping_receipt ? 'Resi sudah terisi. User bisa melacak di aplikasi.' : 'Klik tombol Biteship untuk membuat resi otomatis (Cek Resi - RajaOngkir).'}
+                                        {formData.shipping_receipt ? 'Resi sudah terisi. User bisa melacak di aplikasi.' : 'Isi resi pengiriman setelah barang dikirim.'}
                                     </p>
                                 </div>
                             </div>
@@ -1237,74 +1094,7 @@ const TransactionsView = ({ showToast }) => {
                     </div>
                 </div>
             )}
-            {/* Biteship Modal */}
-            {isBiteshipModalOpen && (
-                <div className="admin-modal-overlay">
-                    <div className="admin-modal" style={{ maxWidth: '500px' }}>
-                        <div className="admin-modal-header">
-                            <h2 className="admin-modal-title">Buat Pengiriman Biteship</h2>
-                            <button className="admin-btn-outline" style={{ padding: '4px', border: 'none', borderRadius: '50%' }} onClick={() => setIsBiteshipModalOpen(false)}>
-                                <X size={20} />
-                            </button>
-                        </div>
-                        <div className="admin-modal-body">
-                            <div style={{ background: '#f1f5f9', padding: '12px', borderRadius: '8px', marginBottom: '16px', fontSize: '13px' }}>
-                                <div><strong>Order ID:</strong> {biteshipTrx?.id}</div>
-                                <div><strong>Pelanggan:</strong> {biteshipTrx?.user_name}</div>
-                                <div style={{ marginTop: '4px', color: '#64748b' }}>{biteshipTrx?.shipping_address}</div>
-                            </div>
 
-                            <div className="admin-form-group">
-                                <label>Cari Area (Kecamatan/Kota)</label>
-                                <div style={{ display: 'flex', gap: '8px' }}>
-                                    <input 
-                                        type="text" 
-                                        className="admin-form-control" 
-                                        placeholder="Ketik minimal 3 karakter..." 
-                                        value={areaQuery} 
-                                        onChange={e => setAreaQuery(e.target.value)} 
-                                    />
-                                    <button 
-                                        className="admin-btn admin-btn-outline" 
-                                        onClick={() => searchArea(areaQuery)}
-                                        disabled={isSearchingArea}
-                                    >
-                                        {isSearchingArea ? <Loader className="animate-spin" size={16} /> : <Search size={16} />}
-                                    </button>
-                                </div>
-                            </div>
-
-                            {areaResults.length > 0 && (
-                                <div style={{ maxHeight: '200px', overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '8px', marginTop: '8px' }}>
-                                    {areaResults.map((area, idx) => (
-                                        <div 
-                                            key={idx} 
-                                            onClick={() => handleCreateBiteshipOrder(biteshipTrx, area)}
-                                            style={{ 
-                                                padding: '10px 12px', 
-                                                borderBottom: idx === areaResults.length - 1 ? 'none' : '1px solid #f1f5f9',
-                                                cursor: 'pointer',
-                                                fontSize: '13px'
-                                            }}
-                                            className="area-item-hover"
-                                        >
-                                            <div style={{ fontWeight: 'bold' }}>{area.name}</div>
-                                            <div style={{ color: '#64748b', fontSize: '11px' }}>{area.country_name} - Area ID: {area.id}</div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-
-                            {isCreatingBiteshipOrder && (
-                                <div style={{ textAlign: 'center', marginTop: '16px' }}>
-                                    <Loader className="animate-spin" size={24} style={{ marginBottom: '8px' }} />
-                                    <p style={{ fontSize: '13px', color: '#64748b' }}>Menghubungi Biteship & Membuat Pesanan...</p>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };
