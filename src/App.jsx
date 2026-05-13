@@ -602,7 +602,7 @@ const StoreView = ({ onBack, userId }) => {
                 amount: amountToPay,
                 status: 'Pending',
                 method: 'Xendit Gateway',
-                delivery_status: 'pengemasan',
+                delivery_status: 'Processing',
                 shipping_address: fullAddress,
                 shipping_courier: 'Manual',
                 shipping_cost: 0,
@@ -1115,11 +1115,11 @@ const ProfilView = ({ streak, bestStreak, onReset, setActiveTab, userId, onCheck
                                 )}
                             </div>
                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                 <div style={{ width: '8px', height: '8px', background: trx.delivery_status === 'sampai' ? '#00E676' : '#FFD700', borderRadius: '50%' }}></div>
-                                 <span style={{ fontSize: '11px', fontWeight: 'bold', color: trx.delivery_status === 'sampai' ? '#00E676' : '#FFD700' }}>
-                                     {trx.delivery_status === 'pengemasan' ? '📦 Dikemas' : 
-                                      trx.delivery_status === 'pengantaran' ? '🚚 Dikirim' : 
-                                      trx.delivery_status === 'sampai' ? '✅ Selesai' : trx.delivery_status || 'Diproses'}
+                                 <div style={{ width: '8px', height: '8px', background: trx.delivery_status === 'Delivered' ? '#00E676' : '#FFD700', borderRadius: '50%' }}></div>
+                                 <span style={{ fontSize: '11px', fontWeight: 'bold', color: trx.delivery_status === 'Delivered' ? '#00E676' : '#FFD700' }}>
+                                     {trx.delivery_status === 'Processing' ? '📦 Dikemas' : 
+                                      trx.delivery_status === 'Shipped' ? '🚚 Dikirim' : 
+                                      trx.delivery_status === 'Delivered' ? '✅ Selesai' : trx.delivery_status || 'Diproses'}
                                  </span>
                              </div>
                         </div>
@@ -1422,9 +1422,9 @@ const TransactionDetailModal = ({ isOpen, onClose, trx, onCheckTracking }) => {
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px', fontSize: '13px' }}>
                         <span style={{ color: '#888' }}>Status Pengiriman</span>
                         <span style={{ fontWeight: 'bold', color: '#FFF' }}>
-                            {trx.delivery_status === 'pengemasan' ? '📦 Sedang Dikemas' : 
-                             trx.delivery_status === 'pengantaran' ? '🚚 Dalam Pengiriman' : 
-                             trx.delivery_status === 'sampai' ? '✅ Sudah Diterima' : trx.delivery_status}
+                            {trx.delivery_status === 'Processing' ? '📦 Sedang Dikemas' : 
+                             trx.delivery_status === 'Shipped' ? '🚚 Dalam Pengiriman' : 
+                             trx.delivery_status === 'Delivered' ? '✅ Sudah Diterima' : trx.delivery_status}
                         </span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>

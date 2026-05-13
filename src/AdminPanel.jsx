@@ -795,7 +795,7 @@ const TransactionsView = ({ showToast }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingId, setEditingId] = useState(null);
-    const [formData, setFormData] = useState({ user_name: '', user_phone: '', amount: '', status: 'Pending', delivery_status: 'pengemasan', method: 'Manual', shipping_receipt: '', shipping_courier: 'Manual', shipping_address: '', shipping_area_id: '', items: [] });
+    const [formData, setFormData] = useState({ user_name: '', user_phone: '', amount: '', status: 'Pending', delivery_status: 'Processing', method: 'Manual', shipping_receipt: '', shipping_courier: 'Manual', shipping_address: '', shipping_area_id: '', items: [] });
 
     useEffect(() => {
         fetchTransactions();
@@ -854,7 +854,7 @@ const TransactionsView = ({ showToast }) => {
             showToast('Gagal menyimpan transaksi', 'error');
         }
 
-        setFormData({ user_name: '', user_phone: '', amount: '', status: 'Pending', delivery_status: 'pengemasan', method: 'Manual', shipping_receipt: '', shipping_courier: 'Manual', shipping_address: '', items: [] });
+        setFormData({ user_name: '', user_phone: '', amount: '', status: 'Pending', delivery_status: 'Processing', method: 'Manual', shipping_receipt: '', shipping_courier: 'Manual', shipping_address: '', items: [] });
         setEditingId(null);
         setIsModalOpen(false);
     };
@@ -865,7 +865,7 @@ const TransactionsView = ({ showToast }) => {
             user_phone: trx.user_phone || '',
             amount: trx.amount, 
             status: trx.status, 
-            delivery_status: trx.delivery_status || 'pengemasan', 
+            delivery_status: trx.delivery_status || 'Processing', 
             method: trx.method || 'Manual',
             shipping_receipt: trx.shipping_receipt || '',
             shipping_courier: trx.shipping_courier || 'Manual',
@@ -897,7 +897,7 @@ const TransactionsView = ({ showToast }) => {
                 <div style={{ display: 'flex', gap: '12px' }}>
                     <button className="admin-btn admin-btn-outline" onClick={() => showToast('Mengekspor laporan...', 'success')}>Export CSV</button>
                     <button className="admin-btn admin-btn-primary" onClick={() => {
-                        setFormData({ user_name: '', user_phone: '', amount: '', status: 'Pending', delivery_status: 'pengemasan', method: 'Manual', shipping_receipt: '', shipping_courier: 'Manual', shipping_address: '', shipping_area_id: '', items: [] });
+                        setFormData({ user_name: '', user_phone: '', amount: '', status: 'Pending', delivery_status: 'Processing', method: 'Manual', shipping_receipt: '', shipping_courier: 'Manual', shipping_address: '', shipping_area_id: '', items: [] });
                         setEditingId(null);
                         setIsModalOpen(true);
                     }}>
@@ -923,7 +923,7 @@ const TransactionsView = ({ showToast }) => {
                 <div className="admin-card" style={{ borderLeft: '4px solid #3b82f6' }}>
                     <div className="admin-card-title">Dalam Pengantaran</div>
                     <div className="admin-card-value" style={{ fontSize: '24px', marginTop: '8px' }}>
-                        {isLoading ? <Loader className="animate-spin" size={20} /> : transactions.filter(t => t.delivery_status === 'pengantaran').length}
+                        {isLoading ? <Loader className="animate-spin" size={20} /> : transactions.filter(t => t.delivery_status === 'Shipped').length}
                     </div>
                 </div>
             </div>
@@ -981,8 +981,8 @@ const TransactionsView = ({ showToast }) => {
                                         </span>
                                     </td>
                                     <td>
-                                        <span className={`admin-badge ${trx.delivery_status === 'sampai' ? 'badge-success' : trx.delivery_status === 'pengantaran' ? 'badge-primary' : 'badge-gray'}`}>
-                                            <Truck size={12} style={{ marginRight: '4px' }} /> {trx.delivery_status}
+                                        <span className={`admin-badge ${trx.delivery_status === 'Delivered' ? 'badge-success' : trx.delivery_status === 'Shipped' ? 'badge-primary' : 'badge-gray'}`}>
+                                            <Truck size={12} style={{ marginRight: '4px' }} /> {trx.delivery_status === 'Processing' ? 'Pengemasan' : trx.delivery_status === 'Shipped' ? 'Pengantaran' : trx.delivery_status === 'Delivered' ? 'Sampai' : trx.delivery_status}
                                         </span>
                                     </td>
                                     <td>
@@ -1050,9 +1050,9 @@ const TransactionsView = ({ showToast }) => {
                             <div className="admin-form-group">
                                 <label>Progress Pengiriman</label>
                                 <select className="admin-form-control" value={formData.delivery_status} onChange={e => setFormData({ ...formData, delivery_status: e.target.value })}>
-                                    <option value="pengemasan">Pengemasan</option>
-                                    <option value="pengantaran">Pengantaran</option>
-                                    <option value="sampai">Sampai</option>
+                                    <option value="Processing">Pengemasan</option>
+                                    <option value="Shipped">Pengantaran</option>
+                                    <option value="Delivered">Sampai</option>
                                 </select>
                             </div>
                             <div className="admin-form-group">
