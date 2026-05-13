@@ -1558,9 +1558,6 @@ export default function App() {
         setIsLoggedIn(true);
     };
 
-    if (!isLoggedIn) {
-        return <AuthView onLoginSuccess={handleLoginSuccess} />;
-    }
 
     const [trackingResi, setTrackingResi] = useState('');
     const [trackingCourier, setTrackingCourier] = useState('');
@@ -1613,6 +1610,10 @@ export default function App() {
         setSelectedTrx(trx);
         setIsDetailModalOpen(true);
     };
+
+    if (!isLoggedIn) {
+        return <AuthView onLoginSuccess={handleLoginSuccess} />;
+    }
 
     return (
         <AppErrorBoundary>
