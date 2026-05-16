@@ -1207,7 +1207,7 @@ class AppErrorBoundary extends React.Component {
 // --- AUTHENTICATION COMPONENT ---
 const AuthView = ({ onLoginSuccess }) => {
     const navigate = useNavigate();
-    const [onboardingStep, setOnboardingStep] = useState('welcome'); // 'welcome', 'profile', 'rhythm', 'login'
+    const [onboardingStep, setOnboardingStep] = useState('welcome'); // 'welcome', 'profile', 'rhythm', 'login', 'forgot_password_verify', 'forgot_password_reset'
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({ 
         name: '', email: '', phone: '', password: '',
@@ -1215,6 +1215,7 @@ const AuthView = ({ onLoginSuccess }) => {
         wake_up_time: '', workout_time: '', focus_work_time: '', sleep_time: ''
     });
     const [errorMsg, setErrorMsg] = useState('');
+    const [resetUserId, setResetUserId] = useState(null);
 
     const handleLogin = async (e) => {
         e.preventDefault();
@@ -1283,6 +1284,51 @@ const AuthView = ({ onLoginSuccess }) => {
             setOnboardingStep('login');
         } catch (err) {
             console.error('Registration Error:', err);
+            setErrorMsg(err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleVerifyReset = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        setErrorMsg('');
+        try {
+            const { data, error } = await supabase.from('users')
+                .select('id')
+                .eq('email', formData.email)
+                .eq('phone', formData.phone)
+                .maybeSingle();
+
+            if (error || !data) throw new Error('Data Email dan Nomor WhatsApp tidak cocok/ditemukan.');
+            
+            setResetUserId(data.id);
+            setFormData({ ...formData, password: '' });
+            setOnboardingStep('forgot_password_reset');
+        } catch (err) {
+            setErrorMsg(err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleResetPassword = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        setErrorMsg('');
+        try {
+            if (!formData.password) throw new Error('Password baru tidak boleh kosong.');
+            
+            const { error } = await supabase.from('users')
+                .update({ password: formData.password })
+                .eq('id', resetUserId);
+
+            if (error) throw new Error('Gagal mereset password.');
+            
+            alert('Password berhasil diperbarui. Silakan login kembali.');
+            setOnboardingStep('login');
+        } catch (err) {
             setErrorMsg(err.message);
         } finally {
             setLoading(false);
@@ -1386,11 +1432,60 @@ const AuthView = ({ onLoginSuccess }) => {
                             <input type="email" placeholder="Alamat Email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} required style={{ width: '100%', padding: '14px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#FFF' }} />
                             <input type="password" placeholder="Password" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} required style={{ width: '100%', padding: '14px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#FFF' }} />
                             
+                            <div style={{ textAlign: 'right' }}>
+                                <button type="button" onClick={() => setOnboardingStep('forgot_password_verify')} style={{ background: 'none', border: 'none', color: '#00E676', fontSize: '13px', cursor: 'pointer', padding: 0 }}>Lupa Password?</button>
+                            </div>
+
                             <button type="submit" disabled={loading} className="btn-primary" style={{ marginTop: '8px' }}>
                                 {loading ? 'Memproses...' : 'Masuk Sekarang'}
                             </button>
                             
                             <button type="button" onClick={() => setOnboardingStep('welcome')} style={{ background: 'none', border: 'none', color: '#888', textDecoration: 'underline', cursor: 'pointer', fontSize: '13px' }}>Ganti ke Pendaftaran</button>
+                        </form>
+                    </motion.div>
+                )}
+
+                {onboardingStep === 'forgot_password_verify' && (
+                    <motion.div key="forgot_password_verify" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.05 }} className="glass-card" style={{ padding: '32px 24px' }}>
+                        <h2 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '8px', textAlign: 'center' }}>Lupa Password</h2>
+                        <p style={{ color: '#888', marginBottom: '24px', fontSize: '14px', textAlign: 'center' }}>Masukkan Email dan Nomor WhatsApp terdaftar Anda untuk verifikasi.</p>
+                        
+                        {errorMsg && (
+                            <div style={{ background: '#ef444420', border: '1px solid #ef4444', color: '#ef4444', padding: '12px', borderRadius: '8px', marginBottom: '24px', fontSize: '14px', textAlign: 'center' }}>
+                                {errorMsg}
+                            </div>
+                        )}
+
+                        <form onSubmit={handleVerifyReset} style={{ display: 'grid', gap: '16px' }}>
+                            <input type="email" placeholder="Alamat Email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} required style={{ width: '100%', padding: '14px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#FFF' }} />
+                            <input type="tel" placeholder="Nomor WhatsApp" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} required style={{ width: '100%', padding: '14px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#FFF' }} />
+                            
+                            <button type="submit" disabled={loading} className="btn-primary" style={{ marginTop: '8px' }}>
+                                {loading ? 'Memverifikasi...' : 'Verifikasi Data'}
+                            </button>
+                            
+                            <button type="button" onClick={() => setOnboardingStep('login')} style={{ background: 'none', border: 'none', color: '#888', textDecoration: 'underline', cursor: 'pointer', fontSize: '13px' }}>Kembali ke Login</button>
+                        </form>
+                    </motion.div>
+                )}
+
+                {onboardingStep === 'forgot_password_reset' && (
+                    <motion.div key="forgot_password_reset" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.05 }} className="glass-card" style={{ padding: '32px 24px' }}>
+                        <h2 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '8px', textAlign: 'center' }}>Reset Password</h2>
+                        <p style={{ color: '#888', marginBottom: '24px', fontSize: '14px', textAlign: 'center' }}>Masukkan password baru Anda.</p>
+                        
+                        {errorMsg && (
+                            <div style={{ background: '#ef444420', border: '1px solid #ef4444', color: '#ef4444', padding: '12px', borderRadius: '8px', marginBottom: '24px', fontSize: '14px', textAlign: 'center' }}>
+                                {errorMsg}
+                            </div>
+                        )}
+
+                        <form onSubmit={handleResetPassword} style={{ display: 'grid', gap: '16px' }}>
+                            <input type="password" placeholder="Password Baru" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} required style={{ width: '100%', padding: '14px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#FFF' }} />
+                            
+                            <button type="submit" disabled={loading} className="btn-primary" style={{ marginTop: '8px' }}>
+                                {loading ? 'Menyimpan...' : 'Simpan Password Baru'}
+                            </button>
                         </form>
                     </motion.div>
                 )}
