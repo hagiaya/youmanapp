@@ -879,10 +879,9 @@ const StoreView = ({ onBack, userId }) => {
     );
 };
 
-const NotificationView = ({ onBack }) => {
+const NotificationView = ({ onBack, isAlarmActive, toggleAlarm }) => {
     const [emailNotif, setEmailNotif] = useState(true);
     const [waNotif, setWaNotif] = useState(false);
-    const [reminderNotif, setReminderNotif] = useState(true);
 
     return (
         <motion.div
@@ -926,10 +925,10 @@ const NotificationView = ({ onBack }) => {
                     <p style={{ margin: 0, fontSize: '12px', color: '#AAA' }}>Bunyi suara saat aplikasi terbuka untuk pengingat.</p>
                 </div>
                 <div 
-                    onClick={() => setReminderNotif(!reminderNotif)}
-                    style={{ width: '40px', height: '24px', background: reminderNotif ? '#00E676' : 'rgba(255,255,255,0.2)', borderRadius: '12px', position: 'relative', cursor: 'pointer', transition: '0.3s' }}
+                    onClick={() => toggleAlarm()}
+                    style={{ width: '40px', height: '24px', background: isAlarmActive ? '#00E676' : 'rgba(255,255,255,0.2)', borderRadius: '12px', position: 'relative', cursor: 'pointer', transition: '0.3s' }}
                 >
-                    <div style={{ width: '20px', height: '20px', background: '#FFF', borderRadius: '50%', position: 'absolute', top: '2px', left: reminderNotif ? '18px' : '2px', transition: '0.3s' }} />
+                    <div style={{ width: '20px', height: '20px', background: '#FFF', borderRadius: '50%', position: 'absolute', top: '2px', left: isAlarmActive ? '18px' : '2px', transition: '0.3s' }} />
                 </div>
             </div>
         </motion.div>
@@ -1848,13 +1847,8 @@ function AppContent({ onCheckTracking, onShowDetail }) {
             Notification.requestPermission();
         }
 
+    useEffect(() => {
         localStorage.setItem('youman_alarm_active', isAlarmActive.toString());
-        if (isAlarmActive && navigator.vibrate) {
-            const interval = setInterval(() => {
-                navigator.vibrate([200, 100, 200]);
-            }, 2000);
-            return () => clearInterval(interval);
-        }
     }, [isAlarmActive]);
 
     const sendSystemNotification = (title, body) => {
@@ -1881,7 +1875,6 @@ function AppContent({ onCheckTracking, onShowDetail }) {
             const now = new Date();
             const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
             
-            // Periksa setiap ritual yang belum selesai
             rituals.forEach(ritual => {
                 const lastNotifiedKey = `notified_${ritual.id}_${now.getDate()}_${now.getHours()}_${now.getMinutes()}`;
                 
@@ -1889,25 +1882,31 @@ function AppContent({ onCheckTracking, onShowDetail }) {
                     // Kirim Notifikasi Sistem
                     sendSystemNotification(
                         `Waktunya ${ritual.title.toUpperCase()}!`, 
-                        ritual.subtitle || 'Laksanakan protokol kedisiplinan Anda sekarang untuk menjaga performa puncak.'
+                        ritual.subtitle || 'Laksanakan protokol kedisiplinan Anda sekarang.'
                     );
 
                     // Tandai sudah dinotifikasi untuk menit ini agar tidak double
                     localStorage.setItem(lastNotifiedKey, 'true');
                     
-                    // Bunyi alarm pendek jika aplikasi sedang terbuka
-                    try { 
-                        const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
-                        audio.volume = 0.5;
-                        audio.play(); 
-                    } catch(e) { console.log("Audio play failed", e); }
+                    // Efek suara dan getar hanya jika alarm diaktifkan oleh user
+                    if (isAlarmActive) {
+                        try { 
+                            const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+                            audio.volume = 1.0;
+                            audio.play().catch(e => console.log("Audio play blocked", e)); 
+
+                            if (navigator.vibrate) {
+                                navigator.vibrate([500, 200, 500, 200, 500]);
+                            }
+                        } catch(e) { console.log("Alarm trigger failed", e); }
+                    }
                 }
             });
         };
 
-        const interval = setInterval(checkScheduledTimes, 60000); // Check every minute
+        const interval = setInterval(checkScheduledTimes, 15000); // Cek setiap 15 detik untuk akurasi
         return () => clearInterval(interval);
-    }, [rituals]);
+    }, [rituals, isAlarmActive]);
 
     // Real-time Supabase Data Syncing Hook
     useEffect(() => {
@@ -1990,7 +1989,17 @@ function AppContent({ onCheckTracking, onShowDetail }) {
         setIsAlarmActive(newValue);
         
         if (newValue) {
-            sendSystemNotification('Alarm Aktif', 'Notifikasi sistem akan muncul saat jadwal tiba.');
+            if ('Notification' in window) {
+                Notification.requestPermission().then(permission => {
+                    if (permission === 'granted') {
+                        sendSystemNotification('Alarm Aktif', 'Notifikasi sistem akan muncul saat jadwal tiba.');
+                        // Unlock audio context
+                        const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+                        audio.volume = 0;
+                        audio.play().catch(() => {});
+                    }
+                });
+            }
         }
 
         // Automate ritual completion when alarm is turned OFF
@@ -2062,6 +2071,8 @@ function AppContent({ onCheckTracking, onShowDetail }) {
                         <NotificationView 
                             key="notifications" 
                             onBack={() => setActiveTab('profile')} 
+                            isAlarmActive={isAlarmActive}
+                            toggleAlarm={toggleAlarm}
                         />
                     )}
                     {activeTab === 'progress' && (
