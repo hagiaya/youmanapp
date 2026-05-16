@@ -1207,7 +1207,7 @@ class AppErrorBoundary extends React.Component {
 // --- AUTHENTICATION COMPONENT ---
 const AuthView = ({ onLoginSuccess }) => {
     const navigate = useNavigate();
-    const [onboardingStep, setOnboardingStep] = useState('welcome'); // 'welcome', 'profile', 'rhythm', 'login', 'forgot_password_verify', 'forgot_password_reset'
+    const [onboardingStep, setOnboardingStep] = useState('welcome'); // 'welcome', 'profile', 'rhythm', 'login', 'forgot_password_verify', 'forgot_password_otp', 'forgot_password_reset'
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({ 
         name: '', email: '', phone: '', password: '',
@@ -1216,6 +1216,8 @@ const AuthView = ({ onLoginSuccess }) => {
     });
     const [errorMsg, setErrorMsg] = useState('');
     const [resetUserId, setResetUserId] = useState(null);
+    const [generatedOtp, setGeneratedOtp] = useState('');
+    const [userOtpInput, setUserOtpInput] = useState('');
 
     const handleLogin = async (e) => {
         e.preventDefault();
@@ -1296,20 +1298,46 @@ const AuthView = ({ onLoginSuccess }) => {
         setErrorMsg('');
         try {
             const { data, error } = await supabase.from('users')
-                .select('id')
+                .select('id, phone')
                 .eq('email', formData.email)
                 .eq('phone', formData.phone)
                 .maybeSingle();
 
             if (error || !data) throw new Error('Data Email dan Nomor WhatsApp tidak cocok/ditemukan.');
             
+            // Generate 6 digit OTP
+            const otp = Math.floor(100000 + Math.random() * 900000).toString();
+            setGeneratedOtp(otp);
             setResetUserId(data.id);
-            setFormData({ ...formData, password: '' });
-            setOnboardingStep('forgot_password_reset');
+
+            // Send OTP via Fonnte
+            const token = 'x8RfS97xn1sUzdVk5mmP';
+            const message = `Kode OTP YOUMAN Anda adalah: *${otp}*. Gunakan kode ini untuk mereset password Anda. Jangan sebarkan kode ini kepada siapapun.`;
+            
+            const response = await fetch('https://api.fonnte.com/send', {
+                method: 'POST',
+                headers: { 'Authorization': token },
+                body: new URLSearchParams({ 'target': data.phone, 'message': message })
+            });
+            const result = await response.json();
+            
+            if (!result.status) throw new Error('Gagal mengirim WhatsApp OTP. Silakan coba lagi.');
+
+            setOnboardingStep('forgot_password_otp');
         } catch (err) {
             setErrorMsg(err.message);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleVerifyOtp = (e) => {
+        e.preventDefault();
+        if (userOtpInput === generatedOtp) {
+            setFormData({ ...formData, password: '' });
+            setOnboardingStep('forgot_password_reset');
+        } else {
+            setErrorMsg('Kode OTP salah. Silakan periksa kembali WhatsApp Anda.');
         }
     };
 
@@ -1465,6 +1493,29 @@ const AuthView = ({ onLoginSuccess }) => {
                             </button>
                             
                             <button type="button" onClick={() => setOnboardingStep('login')} style={{ background: 'none', border: 'none', color: '#888', textDecoration: 'underline', cursor: 'pointer', fontSize: '13px' }}>Kembali ke Login</button>
+                        </form>
+                    </motion.div>
+                )}
+
+                {onboardingStep === 'forgot_password_otp' && (
+                    <motion.div key="forgot_password_otp" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.05 }} className="glass-card" style={{ padding: '32px 24px' }}>
+                        <h2 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '8px', textAlign: 'center' }}>Verifikasi OTP</h2>
+                        <p style={{ color: '#888', marginBottom: '24px', fontSize: '14px', textAlign: 'center' }}>Kode OTP telah dikirim ke WhatsApp Anda. Masukkan kode di bawah ini.</p>
+                        
+                        {errorMsg && (
+                            <div style={{ background: '#ef444420', border: '1px solid #ef4444', color: '#ef4444', padding: '12px', borderRadius: '8px', marginBottom: '24px', fontSize: '14px', textAlign: 'center' }}>
+                                {errorMsg}
+                            </div>
+                        )}
+
+                        <form onSubmit={handleVerifyOtp} style={{ display: 'grid', gap: '16px' }}>
+                            <input type="text" placeholder="Masukkan 6 Digit Kode OTP" value={userOtpInput} onChange={e => setUserOtpInput(e.target.value)} required style={{ width: '100%', padding: '14px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#FFF', textAlign: 'center', fontSize: '20px', letterSpacing: '4px', fontWeight: 'bold' }} maxLength="6" />
+                            
+                            <button type="submit" disabled={loading} className="btn-primary" style={{ marginTop: '8px' }}>
+                                Verifikasi OTP
+                            </button>
+                            
+                            <button type="button" onClick={() => setOnboardingStep('forgot_password_verify')} style={{ background: 'none', border: 'none', color: '#888', textDecoration: 'underline', cursor: 'pointer', fontSize: '13px' }}>Kirim Ulang / Ganti Nomor</button>
                         </form>
                     </motion.div>
                 )}
