@@ -879,9 +879,59 @@ const StoreView = ({ onBack, userId }) => {
     );
 };
 
-const NotificationView = ({ onBack, isAlarmActive, toggleAlarm }) => {
+const NotificationView = ({ onBack, isAlarmActive, toggleAlarm, userId }) => {
     const [emailNotif, setEmailNotif] = useState(true);
     const [waNotif, setWaNotif] = useState(false);
+    const [pushNotif, setPushNotif] = useState(true);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchPreferences = async () => {
+            try {
+                if (!userId) return;
+                const { data, error } = await supabase
+                    .from('users')
+                    .select('whatsapp_reminder_enabled, push_reminder_enabled')
+                    .eq('id', userId)
+                    .maybeSingle();
+                
+                if (data) {
+                    setWaNotif(!!data.whatsapp_reminder_enabled);
+                    setPushNotif(!!data.push_reminder_enabled);
+                }
+            } catch (e) {
+                console.error("Gagal memuat preferensi:", e);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchPreferences();
+    }, [userId]);
+
+    const handleToggleWa = async () => {
+        const newValue = !waNotif;
+        setWaNotif(newValue);
+        if (userId) {
+            try {
+                await supabase.from('users').update({ whatsapp_reminder_enabled: newValue }).eq('id', userId);
+            } catch (e) {
+                console.error("Gagal memperbarui preferensi WhatsApp:", e);
+            }
+        }
+    };
+
+    const handleTogglePush = async () => {
+        const newValue = !pushNotif;
+        setPushNotif(newValue);
+        if (userId) {
+            try {
+                await supabase.from('users').update({ push_reminder_enabled: newValue }).eq('id', userId);
+            } catch (e) {
+                console.error("Gagal memperbarui preferensi Push:", e);
+            }
+        }
+    };
 
     return (
         <motion.div
@@ -893,44 +943,63 @@ const NotificationView = ({ onBack, isAlarmActive, toggleAlarm }) => {
             </button>
             <SectionHeader title="Notifikasi" subtitle="Pilih preferensi pengingat Anda." />
 
-            <div className="glass-card" style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px' }}>
-                <div>
-                    <h3 style={{ margin: '0 0 4px 0', fontSize: '16px' }}>Pengingat Harian (Email)</h3>
-                    <p style={{ margin: 0, fontSize: '12px', color: '#AAA' }}>Dapatkan laporan kedisiplinan dan pengingat via email.</p>
-                </div>
-                <div 
-                    onClick={() => setEmailNotif(!emailNotif)}
-                    style={{ width: '40px', height: '24px', background: emailNotif ? '#00E676' : 'rgba(255,255,255,0.2)', borderRadius: '12px', position: 'relative', cursor: 'pointer', transition: '0.3s' }}
-                >
-                    <div style={{ width: '20px', height: '20px', background: '#FFF', borderRadius: '50%', position: 'absolute', top: '2px', left: emailNotif ? '18px' : '2px', transition: '0.3s' }} />
-                </div>
-            </div>
+            {loading ? (
+                <div style={{ textAlign: 'center', padding: '40px 0', color: '#888', fontSize: '14px' }}>Memuat pengaturan...</div>
+            ) : (
+                <>
+                    <div className="glass-card" style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px' }}>
+                        <div>
+                            <h3 style={{ margin: '0 0 4px 0', fontSize: '16px' }}>Pengingat Harian (Email)</h3>
+                            <p style={{ margin: 0, fontSize: '12px', color: '#AAA' }}>Dapatkan laporan kedisiplinan dan pengingat via email.</p>
+                        </div>
+                        <div 
+                            onClick={() => setEmailNotif(!emailNotif)}
+                            style={{ width: '40px', height: '24px', background: emailNotif ? '#00E676' : 'rgba(255,255,255,0.2)', borderRadius: '12px', position: 'relative', cursor: 'pointer', transition: '0.3s' }}
+                        >
+                            <div style={{ width: '20px', height: '20px', background: '#FFF', borderRadius: '50%', position: 'absolute', top: '2px', left: emailNotif ? '18px' : '2px', transition: '0.3s' }} />
+                        </div>
+                    </div>
 
-            <div className="glass-card" style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px' }}>
-                <div>
-                    <h3 style={{ margin: '0 0 4px 0', fontSize: '16px' }}>Pengingat WhatsApp</h3>
-                    <p style={{ margin: 0, fontSize: '12px', color: '#AAA' }}>Terima notifikasi di WhatsApp saat jadwal protocol tiba.</p>
-                </div>
-                <div 
-                    onClick={() => setWaNotif(!waNotif)}
-                    style={{ width: '40px', height: '24px', background: waNotif ? '#00E676' : 'rgba(255,255,255,0.2)', borderRadius: '12px', position: 'relative', cursor: 'pointer', transition: '0.3s' }}
-                >
-                    <div style={{ width: '20px', height: '20px', background: '#FFF', borderRadius: '50%', position: 'absolute', top: '2px', left: waNotif ? '18px' : '2px', transition: '0.3s' }} />
-                </div>
-            </div>
+                    <div className="glass-card" style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px' }}>
+                        <div>
+                            <h3 style={{ margin: '0 0 4px 0', fontSize: '16px' }}>Pengingat WhatsApp</h3>
+                            <p style={{ margin: 0, fontSize: '12px', color: '#AAA' }}>Terima notifikasi di WhatsApp saat jadwal protocol tiba.</p>
+                        </div>
+                        <div 
+                            onClick={handleToggleWa}
+                            style={{ width: '40px', height: '24px', background: waNotif ? '#00E676' : 'rgba(255,255,255,0.2)', borderRadius: '12px', position: 'relative', cursor: 'pointer', transition: '0.3s' }}
+                        >
+                            <div style={{ width: '20px', height: '20px', background: '#FFF', borderRadius: '50%', position: 'absolute', top: '2px', left: waNotif ? '18px' : '2px', transition: '0.3s' }} />
+                        </div>
+                    </div>
 
-            <div className="glass-card" style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px' }}>
-                <div>
-                    <h3 style={{ margin: '0 0 4px 0', fontSize: '16px' }}>Alarm Dalam Aplikasi</h3>
-                    <p style={{ margin: 0, fontSize: '12px', color: '#AAA' }}>Bunyi suara saat aplikasi terbuka untuk pengingat.</p>
-                </div>
-                <div 
-                    onClick={() => toggleAlarm()}
-                    style={{ width: '40px', height: '24px', background: isAlarmActive ? '#00E676' : 'rgba(255,255,255,0.2)', borderRadius: '12px', position: 'relative', cursor: 'pointer', transition: '0.3s' }}
-                >
-                    <div style={{ width: '20px', height: '20px', background: '#FFF', borderRadius: '50%', position: 'absolute', top: '2px', left: isAlarmActive ? '18px' : '2px', transition: '0.3s' }} />
-                </div>
-            </div>
+                    <div className="glass-card" style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px' }}>
+                        <div>
+                            <h3 style={{ margin: '0 0 4px 0', fontSize: '16px' }}>Notifikasi Push (OneSignal)</h3>
+                            <p style={{ margin: 0, fontSize: '12px', color: '#AAA' }}>Dapatkan notifikasi push di HP/Browser Anda untuk pengingat.</p>
+                        </div>
+                        <div 
+                            onClick={handleTogglePush}
+                            style={{ width: '40px', height: '24px', background: pushNotif ? '#00E676' : 'rgba(255,255,255,0.2)', borderRadius: '12px', position: 'relative', cursor: 'pointer', transition: '0.3s' }}
+                        >
+                            <div style={{ width: '20px', height: '20px', background: '#FFF', borderRadius: '50%', position: 'absolute', top: '2px', left: pushNotif ? '18px' : '2px', transition: '0.3s' }} />
+                        </div>
+                    </div>
+
+                    <div className="glass-card" style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px' }}>
+                        <div>
+                            <h3 style={{ margin: '0 0 4px 0', fontSize: '16px' }}>Alarm Dalam Aplikasi</h3>
+                            <p style={{ margin: 0, fontSize: '12px', color: '#AAA' }}>Bunyi suara saat aplikasi terbuka untuk pengingat.</p>
+                        </div>
+                        <div 
+                            onClick={() => toggleAlarm()}
+                            style={{ width: '40px', height: '24px', background: isAlarmActive ? '#00E676' : 'rgba(255,255,255,0.2)', borderRadius: '12px', position: 'relative', cursor: 'pointer', transition: '0.3s' }}
+                        >
+                            <div style={{ width: '20px', height: '20px', background: '#FFF', borderRadius: '50%', position: 'absolute', top: '2px', left: isAlarmActive ? '18px' : '2px', transition: '0.3s' }} />
+                        </div>
+                    </div>
+                </>
+            )}
         </motion.div>
     );
 };
@@ -1309,6 +1378,12 @@ const AuthView = ({ onLoginSuccess }) => {
             setGeneratedOtp(otp);
             setResetUserId(data.id);
 
+            // Normalize phone number to international format (starting with 62 instead of 0)
+            let formattedPhone = data.phone.replace(/[^0-9]/g, '');
+            if (formattedPhone.startsWith('0')) {
+                formattedPhone = '62' + formattedPhone.slice(1);
+            }
+
             // Send OTP via Fonnte
             const token = 'x8RfS97xn1sUzdVk5mmP';
             const message = `Kode OTP YOUMAN Anda adalah: *${otp}*. Gunakan kode ini untuk mereset password Anda. Jangan sebarkan kode ini kepada siapapun.`;
@@ -1316,7 +1391,7 @@ const AuthView = ({ onLoginSuccess }) => {
             const response = await fetch('https://api.fonnte.com/send', {
                 method: 'POST',
                 headers: { 'Authorization': token },
-                body: new URLSearchParams({ 'target': data.phone, 'message': message })
+                body: new URLSearchParams({ 'target': formattedPhone, 'message': message })
             });
             const result = await response.json();
             
@@ -1838,7 +1913,7 @@ function AppContent({ onCheckTracking, onShowDetail }) {
             });
             // Link user ID to OneSignal for targeted push
             if (userId) {
-                OneSignal.setExternalUserId(userId);
+                OneSignal.login(userId);
             }
         });
 
@@ -1846,6 +1921,7 @@ function AppContent({ onCheckTracking, onShowDetail }) {
         if ('Notification' in window && Notification.permission === 'default') {
             Notification.requestPermission();
         }
+    }, []);
 
     useEffect(() => {
         localStorage.setItem('youman_alarm_active', isAlarmActive.toString());
@@ -2073,6 +2149,7 @@ function AppContent({ onCheckTracking, onShowDetail }) {
                             onBack={() => setActiveTab('profile')} 
                             isAlarmActive={isAlarmActive}
                             toggleAlarm={toggleAlarm}
+                            userId={getUserId()}
                         />
                     )}
                     {activeTab === 'progress' && (

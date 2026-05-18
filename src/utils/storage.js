@@ -24,6 +24,8 @@ export const saveRituals = async (rituals) => {
             id: `${userId}_${date}_${r.id}`, // Format unik per hari per ritual
             user_id: userId,
             title: r.title,
+            subtitle: r.subtitle || '',
+            time: r.time || '12:00',
             completed: r.completed,
             date: date,
             updated_at: new Date().toISOString()
