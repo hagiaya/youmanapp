@@ -444,6 +444,9 @@ const ProtocolView = ({ rituals, setRituals }) => {
 const KnowledgeView = ({ streak }) => {
     const [knowledgeList, setKnowledgeList] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [activePdfUrl, setActivePdfUrl] = useState(null);
+    const [activePdfTitle, setActivePdfTitle] = useState('');
+    const [iframeLoading, setIframeLoading] = useState(true);
 
     let level = 'Pria Pemula';
     if (streak >= 7 && streak < 21) level = 'Pria Disiplin';
@@ -509,10 +512,12 @@ const KnowledgeView = ({ streak }) => {
                                     display: 'flex',
                                     justifyContent: 'flex-start'
                                 }}>
-                                    <a 
-                                        href={item.pdf_url} 
-                                        target="_blank" 
-                                        rel="noopener noreferrer" 
+                                    <button 
+                                        onClick={() => {
+                                            setActivePdfUrl(item.pdf_url);
+                                            setActivePdfTitle(item.title);
+                                            setIframeLoading(true);
+                                        }}
                                         style={{ 
                                             display: 'inline-flex', 
                                             alignItems: 'center', 
@@ -523,7 +528,7 @@ const KnowledgeView = ({ streak }) => {
                                             borderRadius: '10px', 
                                             fontSize: '13px', 
                                             fontWeight: 'bold',
-                                            textDecoration: 'none',
+                                            border: 'none',
                                             boxShadow: '0 4px 12px rgba(255, 59, 48, 0.25)',
                                             transition: 'transform 0.2s ease, box-shadow 0.2s ease',
                                             cursor: 'pointer'
@@ -539,7 +544,7 @@ const KnowledgeView = ({ streak }) => {
                                     >
                                         <FileText size={16} />
                                         Buka File PDF
-                                    </a>
+                                    </button>
                                 </div>
                             )}
                         </div>
@@ -552,6 +557,152 @@ const KnowledgeView = ({ streak }) => {
             )}
 
             <MotivationPanel />
+
+            {/* Premium In-App PDF Reader Modal */}
+            <AnimatePresence>
+                {activePdfUrl && (
+                    <motion.div 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        style={{
+                            position: 'fixed',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            backgroundColor: 'rgba(3, 7, 18, 0.95)',
+                            backdropFilter: 'blur(12px)',
+                            zIndex: 9999,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            padding: '16px'
+                        }}
+                    >
+                        <motion.div 
+                            initial={{ scale: 0.9, y: 20 }}
+                            animate={{ scale: 1, y: 0 }}
+                            exit={{ scale: 0.9, y: 20 }}
+                            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                            className="glass-card" 
+                            style={{
+                                width: '100%',
+                                maxWidth: '900px',
+                                height: '90%',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                padding: 0,
+                                background: '#0a0f1d',
+                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                borderRadius: '20px',
+                                overflow: 'hidden',
+                                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+                            }}
+                        >
+                            {/* Modal Header */}
+                            <div style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                padding: '16px 24px',
+                                borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+                                background: 'rgba(255, 255, 255, 0.02)'
+                            }}>
+                                <div>
+                                    <span style={{ fontSize: '10px', color: '#FF3B30', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1.5px' }}>In-App Reader</span>
+                                    <h3 style={{ margin: '4px 0 0 0', fontSize: '16px', color: '#FFF', fontWeight: 'bold', maxWidth: '300px', mdMaxWidth: '600px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        {activePdfTitle}
+                                    </h3>
+                                </div>
+                                <button 
+                                    onClick={() => setActivePdfUrl(null)}
+                                    style={{
+                                        background: 'rgba(255, 255, 255, 0.05)',
+                                        border: 'none',
+                                        borderRadius: '50%',
+                                        width: '36px',
+                                        height: '36px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        color: '#FFF',
+                                        cursor: 'pointer',
+                                        transition: 'background 0.2s',
+                                        padding: 0
+                                    }}
+                                    onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'}
+                                    onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)'}
+                                >
+                                    <X size={18} />
+                                </button>
+                            </div>
+
+                            {/* Modal Body / Iframe */}
+                            <div style={{ flex: 1, position: 'relative', background: '#070a13', minHeight: '300px' }}>
+                                {iframeLoading && (
+                                    <div style={{
+                                        position: 'absolute',
+                                        top: 0,
+                                        left: 0,
+                                        right: 0,
+                                        bottom: 0,
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        justifyContent: 'center',
+                                        alignItems: 'center',
+                                        background: '#070a13',
+                                        zIndex: 10,
+                                        gap: '12px'
+                                    }}>
+                                        <Loader className="animate-spin" size={32} color="#FF3B30" />
+                                        <span style={{ fontSize: '13px', color: '#888' }}>Memuat dokumen PDF...</span>
+                                    </div>
+                                )}
+                                <iframe 
+                                    src={`https://docs.google.com/gview?url=${encodeURIComponent(activePdfUrl)}&embedded=true`}
+                                    style={{
+                                        width: '100%',
+                                        height: '100%',
+                                        border: 'none',
+                                        display: 'block'
+                                    }}
+                                    onLoad={() => setIframeLoading(false)}
+                                    title={activePdfTitle}
+                                ></iframe>
+                            </div>
+
+                            {/* Modal Footer */}
+                            <div style={{
+                                padding: '16px 24px',
+                                borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+                                background: 'rgba(255, 255, 255, 0.02)',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center'
+                            }}>
+                                <span style={{ fontSize: '12px', color: '#888' }}>
+                                    Menggunakan Google PDF Viewer
+                                </span>
+                                <a 
+                                    href={activePdfUrl} 
+                                    target="_blank" 
+                                    rel="noreferrer" 
+                                    style={{
+                                        fontSize: '12px',
+                                        color: '#FF3B30',
+                                        textDecoration: 'none',
+                                        fontWeight: 'bold'
+                                    }}
+                                >
+                                    Buka di Tab Baru
+                                </a>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </motion.div>
     );
 };

@@ -1543,7 +1543,7 @@ const KnowledgeAdminView = ({ showToast }) => {
                                             { 
                                                 clientAllowedFormats: ['pdf'], 
                                                 maxFileSize: 10000000, // 10MB max limit
-                                                resourceType: 'auto',
+                                                resourceType: 'raw',
                                                 folder: 'youman_materials'
                                             }
                                         )}
