@@ -31,7 +31,8 @@ import {
     X,
     Truck,
     Search,
-    Loader
+    Loader,
+    FileText
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -500,6 +501,47 @@ const KnowledgeView = ({ streak }) => {
                             <div style={{ fontSize: '14px', color: '#BBB', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>
                                 {item.description}
                             </div>
+                            {item.pdf_url && (
+                                <div style={{ 
+                                    marginTop: '20px', 
+                                    paddingTop: '16px', 
+                                    borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+                                    display: 'flex',
+                                    justifyContent: 'flex-start'
+                                }}>
+                                    <a 
+                                        href={item.pdf_url} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer" 
+                                        style={{ 
+                                            display: 'inline-flex', 
+                                            alignItems: 'center', 
+                                            gap: '8px', 
+                                            background: 'linear-gradient(135deg, #FF3B30 0%, #E60000 100%)', 
+                                            color: '#FFF', 
+                                            padding: '10px 18px', 
+                                            borderRadius: '10px', 
+                                            fontSize: '13px', 
+                                            fontWeight: 'bold',
+                                            textDecoration: 'none',
+                                            boxShadow: '0 4px 12px rgba(255, 59, 48, 0.25)',
+                                            transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+                                            cursor: 'pointer'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.currentTarget.style.transform = 'translateY(-2px)';
+                                            e.currentTarget.style.boxShadow = '0 6px 18px rgba(255, 59, 48, 0.35)';
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.transform = 'translateY(0)';
+                                            e.currentTarget.style.boxShadow = '0 4px 12px rgba(255, 59, 48, 0.25)';
+                                        }}
+                                    >
+                                        <FileText size={16} />
+                                        Buka File PDF
+                                    </a>
+                                </div>
+                            )}
                         </div>
                     </div>
                 ))

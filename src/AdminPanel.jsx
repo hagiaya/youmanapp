@@ -18,16 +18,17 @@ const CLOUDINARY_CONFIG = {
     uploadPreset: import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'yaoumanapp',
 };
 
-const openCloudinaryWidget = (onSuccess) => {
+const openCloudinaryWidget = (onSuccess, options = {}) => {
     if (window.cloudinary) {
         const widget = window.cloudinary.createUploadWidget({
             cloudName: CLOUDINARY_CONFIG.cloudName,
             apiKey: CLOUDINARY_CONFIG.apiKey,
             uploadPreset: CLOUDINARY_CONFIG.uploadPreset,
-            folder: 'youman_products',
-            clientAllowedFormats: ['jpeg', 'png', 'webp', 'jpg'],
-            maxFileSize: 2000000, // 2MB max
-            multiple: false
+            folder: options.folder || 'youman_products',
+            clientAllowedFormats: options.clientAllowedFormats || ['jpeg', 'png', 'webp', 'jpg'],
+            maxFileSize: options.maxFileSize || 2000000, // 2MB default max
+            multiple: false,
+            resourceType: options.resourceType || 'auto'
         }, (error, result) => {
             if (!error && result && result.event === 'success') {
                 onSuccess(result.info.secure_url);
@@ -38,6 +39,7 @@ const openCloudinaryWidget = (onSuccess) => {
         alert('Cloudinary Widget SDK belum termuat. Mohon tunggu sejenak atau refresh halaman.');
     }
 };
+
 
 // --- TOAST COMPONENT ---
 const Toast = ({ message, type, onClose }) => (
@@ -1283,7 +1285,7 @@ const KnowledgeAdminView = ({ showToast }) => {
     const [isLoading, setIsLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingId, setEditingId] = useState(null);
-    const [formData, setFormData] = useState({ title: '', description: '', image_url: '', target_level: 'Semua Level' });
+    const [formData, setFormData] = useState({ title: '', description: '', image_url: '', pdf_url: '', target_level: 'Semua Level' });
     const [filterLevel, setFilterLevel] = useState('Semua');
 
     useEffect(() => {
@@ -1326,13 +1328,13 @@ const KnowledgeAdminView = ({ showToast }) => {
             showToast('Gagal menyimpan knowledge', 'error');
         }
 
-        setFormData({ title: '', description: '', image_url: '', target_level: 'Semua Level' });
+        setFormData({ title: '', description: '', image_url: '', pdf_url: '', target_level: 'Semua Level' });
         setEditingId(null);
         setIsModalOpen(false);
     };
 
     const handleEdit = (item) => {
-        setFormData({ title: item.title, description: item.description, image_url: item.image_url || '', target_level: item.target_level || 'Semua Level' });
+        setFormData({ title: item.title, description: item.description, image_url: item.image_url || '', pdf_url: item.pdf_url || '', target_level: item.target_level || 'Semua Level' });
         setEditingId(item.id);
         setIsModalOpen(true);
     };
@@ -1386,7 +1388,7 @@ const KnowledgeAdminView = ({ showToast }) => {
                         <option value="Sang Raja">Sang Raja</option>
                     </select>
                     <button className="admin-btn admin-btn-primary" onClick={() => {
-                        setFormData({ title: '', description: '', image_url: '', target_level: 'Semua Level' });
+                        setFormData({ title: '', description: '', image_url: '', pdf_url: '', target_level: 'Semua Level' });
                         setEditingId(null);
                         setIsModalOpen(true);
                     }}>
@@ -1418,7 +1420,23 @@ const KnowledgeAdminView = ({ showToast }) => {
                                                 : <div style={{ width: '40px', height: '40px', background: '#f1f5f9', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><BookOpen size={16} color="#94a3b8" /></div>
                                             }
                                             <div>
-                                                <div>{item.title}</div>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <span>{item.title}</span>
+                                                    {item.pdf_url && (
+                                                        <span style={{ 
+                                                            fontSize: '9px', 
+                                                            background: 'rgba(239, 68, 68, 0.1)', 
+                                                            color: '#ef4444', 
+                                                            padding: '2px 6px', 
+                                                            borderRadius: '4px',
+                                                            fontWeight: 'bold',
+                                                            display: 'inline-flex',
+                                                            alignItems: 'center'
+                                                        }}>
+                                                            PDF
+                                                        </span>
+                                                    )}
+                                                </div>
                                                 <div style={{ fontSize: '11px', color: 'var(--admin-text-muted)', maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.description}</div>
                                             </div>
                                         </div>
@@ -1495,6 +1513,42 @@ const KnowledgeAdminView = ({ showToast }) => {
                                     )}
                                     <button className="admin-btn admin-btn-outline" style={{ height: 'max-content' }} onClick={() => openCloudinaryWidget(url => setFormData({ ...formData, image_url: url }))}>
                                         {formData.image_url ? 'Ubah Gambar' : 'Upload Cover Materi'}
+                                    </button>
+                                </div>
+                            </div>
+                            <div className="admin-form-group" style={{ marginTop: '16px', marginBottom: '16px' }}>
+                                <label>File PDF Materi (Opsional)</label>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '8px' }}>
+                                    {formData.pdf_url ? (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: '#fef2f2', border: '1px solid #fee2e2', padding: '8px 16px', borderRadius: '8px' }}>
+                                            <span style={{ fontSize: '13px', color: '#b91c1c', fontWeight: '600' }}>PDF Terunggah</span>
+                                            <a href={formData.pdf_url} target="_blank" rel="noreferrer" style={{ fontSize: '12px', color: '#3b82f6', textDecoration: 'underline', fontWeight: 500 }}>Lihat File</a>
+                                            <button 
+                                                type="button"
+                                                onClick={() => setFormData({ ...formData, pdf_url: '' })}
+                                                style={{ background: '#ef4444', color: '#fff', border: 'none', borderRadius: '50%', width: '18px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 }}
+                                            >
+                                                <X size={10} />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div style={{ fontSize: '13px', color: '#94a3b8' }}>Belum ada file PDF yang diunggah.</div>
+                                    )}
+                                    <button 
+                                        type="button"
+                                        className="admin-btn admin-btn-outline" 
+                                        style={{ height: 'max-content' }} 
+                                        onClick={() => openCloudinaryWidget(
+                                            url => setFormData({ ...formData, pdf_url: url }),
+                                            { 
+                                                clientAllowedFormats: ['pdf'], 
+                                                maxFileSize: 10000000, // 10MB max limit
+                                                resourceType: 'auto',
+                                                folder: 'youman_materials'
+                                            }
+                                        )}
+                                    >
+                                        {formData.pdf_url ? 'Ubah PDF' : 'Upload File PDF'}
                                     </button>
                                 </div>
                             </div>
