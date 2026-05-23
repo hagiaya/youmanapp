@@ -34,11 +34,26 @@ export const saveRituals = async (rituals) => {
         await supabase.from('user_rituals').upsert(payload, { onConflict: 'id' });
 
         // 3. Trigger serverless scheduling for remaining future active reminders
-        fetch('/api/schedule-user-reminders', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId })
-        }).catch(err => console.warn('Failed to trigger serverless scheduling:', err));
+        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        if (isLocal) {
+            console.log("[Storage] Skipping schedule-user-reminders API triggering on localhost to prevent proxy errors.");
+        } else {
+            fetch('/api/schedule-user-reminders', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId })
+            }).then(res => {
+                if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+                const contentType = res.headers.get("content-type");
+                if (contentType && contentType.includes("application/json")) {
+                    return res.json();
+                } else {
+                    return res.text();
+                }
+            }).then(data => {
+                console.log("Reminders scheduled successfully:", data);
+            }).catch(err => console.warn('Failed to trigger serverless scheduling:', err));
+        }
     } catch (e) {
         console.warn('Real-time sync pending for rituals');
     }

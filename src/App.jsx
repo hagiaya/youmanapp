@@ -2309,17 +2309,32 @@ function AppContent({ onCheckTracking, onShowDetail }) {
                     const pushEnabled = localStorage.getItem('youman_push_reminder_enabled') === 'true';
                     const userIdForPush = localStorage.getItem('youman_user_id');
                     if (pushEnabled && userIdForPush) {
-                        fetch('/api/send-instant-notification', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                userId: userIdForPush,
-                                title: `Pengingat YOUMAN: ${ritual.title.toUpperCase()}`,
-                                body: ritual.subtitle || `⏰ Jam: ${ritual.time} WIB. Laksanakan protokol kedisiplinan Anda sekarang!`
-                            })
-                        }).then(res => res.json()).then(data => {
-                            console.log("OneSignal push sent instantly:", data);
-                        }).catch(err => console.error("Error sending instant OneSignal:", err));
+                        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+                        if (isLocal) {
+                            console.log("[Alarm Checker] Skipping OneSignal instant push on localhost to prevent Vercel proxy errors.");
+                        } else {
+                            fetch('/api/send-instant-notification', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    userId: userIdForPush,
+                                    title: `Pengingat YOUMAN: ${ritual.title.toUpperCase()}`,
+                                    body: ritual.subtitle || `⏰ Jam: ${ritual.time} WIB. Laksanakan protokol kedisiplinan Anda sekarang!`
+                                })
+                            }).then(res => {
+                                if (!res.ok) {
+                                    throw new Error(`HTTP error! status: ${res.status}`);
+                                }
+                                const contentType = res.headers.get("content-type");
+                                if (contentType && contentType.includes("application/json")) {
+                                    return res.json();
+                                } else {
+                                    return res.text();
+                                }
+                            }).then(data => {
+                                console.log("OneSignal push sent instantly:", data);
+                            }).catch(err => console.error("Error sending instant OneSignal:", err));
+                        }
                     }
                     
                     // Efek suara dan getar hanya jika alarm diaktifkan oleh user
