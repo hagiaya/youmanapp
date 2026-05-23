@@ -32,6 +32,13 @@ export const saveRituals = async (rituals) => {
         }));
 
         await supabase.from('user_rituals').upsert(payload, { onConflict: 'id' });
+
+        // 3. Trigger serverless scheduling for remaining future active reminders
+        fetch('/api/schedule-user-reminders', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId })
+        }).catch(err => console.warn('Failed to trigger serverless scheduling:', err));
     } catch (e) {
         console.warn('Real-time sync pending for rituals');
     }

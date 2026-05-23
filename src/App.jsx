@@ -1520,6 +1520,57 @@ const AuthView = ({ onLoginSuccess }) => {
             const { data: existingUser } = await supabase.from('users').select('id').eq('email', formData.email).maybeSingle();
             if (existingUser) throw new Error('Email sudah terdaftar!');
 
+            const { data: existingPhone } = await supabase.from('users').select('id').eq('phone', formData.phone).maybeSingle();
+            if (existingPhone) throw new Error('Nomor WhatsApp sudah terdaftar!');
+
+            const ageValue = parseInt(formData.age);
+            if (isNaN(ageValue)) throw new Error('Usia harus berupa angka!');
+
+            // Generate 6 digit OTP
+            const otp = Math.floor(100000 + Math.random() * 900000).toString();
+            setGeneratedOtp(otp);
+            setUserOtpInput('');
+
+            // Normalize phone number to international format (starting with 62 instead of 0)
+            let formattedPhone = formData.phone.replace(/[^0-9]/g, '');
+            if (formattedPhone.startsWith('0')) {
+                formattedPhone = '62' + formattedPhone.slice(1);
+            }
+
+            // Send OTP via Fonnte
+            const token = 'x8RfS97xn1sUzdVk5mmP';
+            const message = `Kode OTP Pendaftaran YOUMAN Anda adalah: *${otp}*. Gunakan kode ini untuk memverifikasi pendaftaran akun Anda. Jangan sebarkan kode ini kepada siapapun.`;
+            
+            const response = await fetch('https://api.fonnte.com/send', {
+                method: 'POST',
+                headers: { 'Authorization': token },
+                body: new URLSearchParams({ 'target': formattedPhone, 'message': message })
+            });
+            const result = await response.json();
+            
+            if (!result.status) {
+                throw new Error(`Gagal mengirim WhatsApp OTP pendaftaran: ${result.reason || 'Koneksi API bermasalah'}. Silakan coba lagi.`);
+            }
+
+            setOnboardingStep('register_otp');
+        } catch (err) {
+            console.error('Registration OTP Error:', err);
+            setErrorMsg(err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleVerifyRegisterOtp = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        setErrorMsg('');
+
+        try {
+            if (userOtpInput !== generatedOtp) {
+                throw new Error('Kode OTP salah. Silakan periksa kembali WhatsApp Anda.');
+            }
+
             const ageValue = parseInt(formData.age);
             if (isNaN(ageValue)) throw new Error('Usia harus berupa angka!');
 
@@ -1534,7 +1585,7 @@ const AuthView = ({ onLoginSuccess }) => {
                 workout_time: formData.workout_time || '06:00',
                 focus_work_time: formData.focus_work_time || '09:00', 
                 sleep_time: formData.sleep_time || '22:00',
-                phone_verified: false, 
+                phone_verified: true, 
                 role: 'User'
             }]);
 
@@ -1543,15 +1594,17 @@ const AuthView = ({ onLoginSuccess }) => {
                 throw new Error(`Gagal mendaftar: ${error.message}`);
             }
             
-            alert('Pendaftaran berhasil! Akun Anda sedang menunggu verifikasi Admin agar bisa digunakan.');
+            alert('Pendaftaran dan verifikasi WhatsApp berhasil! Silakan login.');
+            setGeneratedOtp('');
+            setUserOtpInput('');
             setOnboardingStep('login');
         } catch (err) {
-            console.error('Registration Error:', err);
             setErrorMsg(err.message);
         } finally {
             setLoading(false);
         }
     };
+
 
     const handleVerifyReset = async (e) => {
         e.preventDefault();
@@ -1588,7 +1641,9 @@ const AuthView = ({ onLoginSuccess }) => {
             });
             const result = await response.json();
             
-            if (!result.status) throw new Error('Gagal mengirim WhatsApp OTP. Silakan coba lagi.');
+            if (!result.status) {
+                throw new Error(`Gagal mengirim WhatsApp OTP: ${result.reason || 'Koneksi API bermasalah'}. Silakan coba lagi.`);
+            }
 
             setOnboardingStep('forgot_password_otp');
         } catch (err) {
@@ -1708,6 +1763,29 @@ const AuthView = ({ onLoginSuccess }) => {
                                 {loading ? 'Memproses...' : 'Daftar Sekarang'}
                             </button>
                             <button type="button" onClick={() => setOnboardingStep('profile')} style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: '13px' }}>Kembali</button>
+                        </form>
+                    </motion.div>
+                )}
+
+                {onboardingStep === 'register_otp' && (
+                    <motion.div key="register_otp" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.05 }} className="glass-card" style={{ padding: '32px 24px' }}>
+                        <h2 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '8px', textAlign: 'center' }}>Verifikasi OTP Pendaftaran</h2>
+                        <p style={{ color: '#888', marginBottom: '24px', fontSize: '14px', textAlign: 'center' }}>Kode OTP pendaftaran telah dikirim ke WhatsApp Anda. Masukkan kode di bawah ini.</p>
+                        
+                        {errorMsg && (
+                            <div style={{ background: '#ef444420', border: '1px solid #ef4444', color: '#ef4444', padding: '12px', borderRadius: '8px', marginBottom: '24px', fontSize: '14px', textAlign: 'center' }}>
+                                {errorMsg}
+                            </div>
+                        )}
+
+                        <form onSubmit={handleVerifyRegisterOtp} style={{ display: 'grid', gap: '16px' }}>
+                            <input type="text" placeholder="Masukkan 6 Digit Kode OTP" value={userOtpInput} onChange={e => setUserOtpInput(e.target.value)} required style={{ width: '100%', padding: '14px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#FFF', textAlign: 'center', fontSize: '20px', letterSpacing: '4px', fontWeight: 'bold' }} maxLength="6" />
+                            
+                            <button type="submit" disabled={loading} className="btn-primary" style={{ marginTop: '8px' }}>
+                                {loading ? 'Memverifikasi...' : 'Verifikasi OTP'}
+                            </button>
+                            
+                            <button type="button" onClick={() => setOnboardingStep('rhythm')} style={{ background: 'none', border: 'none', color: '#888', textDecoration: 'underline', cursor: 'pointer', fontSize: '13px' }}>Kirim Ulang / Kembali</button>
                         </form>
                     </motion.div>
                 )}
@@ -1965,6 +2043,9 @@ export default function App() {
         localStorage.setItem('youman_is_logged_in', 'true');
         localStorage.setItem('youman_user_id', userData.id);
         localStorage.setItem('youman_user_name', userData.name || 'User YOUMAN');
+        localStorage.setItem('youman_user_phone', userData.phone || '');
+        localStorage.setItem('youman_whatsapp_reminder_enabled', String(!!userData.whatsapp_reminder_enabled));
+        localStorage.setItem('youman_push_reminder_enabled', String(!!userData.push_reminder_enabled));
         localStorage.setItem('youman_wake_up_time', userData.wake_up_time || '');
         localStorage.setItem('youman_workout_time', userData.workout_time || '');
         localStorage.setItem('youman_sleep_time', userData.sleep_time || '');
@@ -2080,12 +2161,15 @@ function AppContent({ onCheckTracking, onShowDetail }) {
     const [isAlarmActive, setIsAlarmActive] = useState(() => localStorage.getItem('youman_alarm_active') === 'true');
 
     useEffect(() => {
-        // Fetch user name if not in localStorage
+        // Fetch and sync user details on app load
         const userId = localStorage.getItem('youman_user_id');
-        if (userId && !localStorage.getItem('youman_user_name')) {
-            supabase.from('users').select('name').eq('id', userId).single().then(({ data }) => {
-                if (data && data.name) {
-                    localStorage.setItem('youman_user_name', data.name);
+        if (userId) {
+            supabase.from('users').select('name, phone, whatsapp_reminder_enabled, push_reminder_enabled').eq('id', userId).single().then(({ data }) => {
+                if (data) {
+                    if (data.name) localStorage.setItem('youman_user_name', data.name);
+                    if (data.phone) localStorage.setItem('youman_user_phone', data.phone);
+                    localStorage.setItem('youman_whatsapp_reminder_enabled', String(!!data.whatsapp_reminder_enabled));
+                    localStorage.setItem('youman_push_reminder_enabled', String(!!data.push_reminder_enabled));
                 }
             });
         }
@@ -2156,6 +2240,53 @@ function AppContent({ onCheckTracking, onShowDetail }) {
 
                     // Tandai sudah dinotifikasi untuk menit ini agar tidak double
                     localStorage.setItem(lastNotifiedKey, 'true');
+
+                    // WhatsApp via Fonnte (Instant Send)
+                    const waEnabled = localStorage.getItem('youman_whatsapp_reminder_enabled') === 'true';
+                    const userPhone = localStorage.getItem('youman_user_phone');
+                    if (waEnabled && userPhone) {
+                        try {
+                            let formattedPhone = userPhone.replace(/[^0-9]/g, '');
+                            if (formattedPhone.startsWith('0')) {
+                                formattedPhone = '62' + formattedPhone.slice(1);
+                            }
+                            
+                            const token = 'x8RfS97xn1sUzdVk5mmP';
+                            const userName = localStorage.getItem('youman_user_name') || 'User YOUMAN';
+                            const message = `Halo *${userName}*, ini pengingat ritual harian Anda:\n\n*${ritual.title.toUpperCase()}*\n⏰ Jam: ${ritual.time} WIB\n\n_${ritual.subtitle || 'Laksanakan protokol kedisiplinan Anda sekarang!'}_`;
+
+                            fetch('https://api.fonnte.com/send', {
+                                method: 'POST',
+                                headers: { 'Authorization': token },
+                                body: new URLSearchParams({
+                                    'target': formattedPhone,
+                                    'message': message,
+                                    'countryCode': '62'
+                                })
+                            }).then(res => res.json()).then(data => {
+                                console.log("WhatsApp sent instantly:", data);
+                            }).catch(err => console.error("Error sending instant WhatsApp:", err));
+                        } catch (e) {
+                            console.error("Instant WhatsApp trigger failed", e);
+                        }
+                    }
+
+                    // OneSignal Push Notification (Instant Send via Serverless Backend)
+                    const pushEnabled = localStorage.getItem('youman_push_reminder_enabled') === 'true';
+                    const userIdForPush = localStorage.getItem('youman_user_id');
+                    if (pushEnabled && userIdForPush) {
+                        fetch('/api/send-instant-notification', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                userId: userIdForPush,
+                                title: `Pengingat YOUMAN: ${ritual.title.toUpperCase()}`,
+                                body: ritual.subtitle || `⏰ Jam: ${ritual.time} WIB. Laksanakan protokol kedisiplinan Anda sekarang!`
+                            })
+                        }).then(res => res.json()).then(data => {
+                            console.log("OneSignal push sent instantly:", data);
+                        }).catch(err => console.error("Error sending instant OneSignal:", err));
+                    }
                     
                     // Efek suara dan getar hanya jika alarm diaktifkan oleh user
                     if (isAlarmActive) {
