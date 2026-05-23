@@ -2161,6 +2161,21 @@ function AppContent({ onCheckTracking, onShowDetail }) {
     });
 
     const [isAlarmActive, setIsAlarmActive] = useState(() => localStorage.getItem('youman_alarm_active') === 'true');
+    const [activeAlarmAudio, setActiveAlarmAudio] = useState(null);
+    const [ringingRitualTitle, setRingingRitualTitle] = useState('');
+
+    const handleStopAlarm = () => {
+        if (activeAlarmAudio) {
+            try {
+                activeAlarmAudio.pause();
+                activeAlarmAudio.currentTime = 0;
+            } catch (e) {
+                console.error("Failed to pause audio:", e);
+            }
+            setActiveAlarmAudio(null);
+            setRingingRitualTitle('');
+        }
+    };
 
     useEffect(() => {
         // Fetch and sync user details on app load
@@ -2183,18 +2198,33 @@ function AppContent({ onCheckTracking, onShowDetail }) {
             }).catch(err => console.log('SW failed:', err));
         }
 
-        // Initialize OneSignal
-        window.OneSignalDeferred = window.OneSignalDeferred || [];
-        OneSignalDeferred.push(async function(OneSignal) {
-            await OneSignal.init({
-                appId: import.meta.env.VITE_ONESIGNAL_APP_ID,
-                allowLocalhostAsSecureOrigin: true, // For development
+        // Initialize OneSignal (Only in Production domain to prevent localhost domain errors)
+        const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        if (!isLocalhost) {
+            window.OneSignalDeferred = window.OneSignalDeferred || [];
+            OneSignalDeferred.push(async function(OneSignal) {
+                try {
+                    // Check if already initialized to prevent SDK already initialized error
+                    if (OneSignal.initialized) {
+                        console.log("OneSignal already initialized.");
+                        if (userId) OneSignal.login(userId);
+                        return;
+                    }
+                    await OneSignal.init({
+                        appId: import.meta.env.VITE_ONESIGNAL_APP_ID,
+                        allowLocalhostAsSecureOrigin: true, // For development
+                    });
+                    // Link user ID to OneSignal for targeted push
+                    if (userId) {
+                        OneSignal.login(userId);
+                    }
+                } catch (e) {
+                    console.warn("OneSignal initialization deferred/failed safely:", e.message);
+                }
             });
-            // Link user ID to OneSignal for targeted push
-            if (userId) {
-                OneSignal.login(userId);
-            }
-        });
+        } else {
+            console.log("Skipping OneSignal initialization on localhost to prevent domain constraint error.");
+        }
 
         // Auto request permission
         if ('Notification' in window && Notification.permission === 'default') {
@@ -2297,7 +2327,12 @@ function AppContent({ onCheckTracking, onShowDetail }) {
                         try { 
                             const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
                             audio.volume = 1.0;
-                            audio.play().catch(e => console.log("Audio play blocked", e)); 
+                            audio.loop = true; // Loop continuously!
+                            audio.play().then(() => {
+                                console.log("[Alarm Checker] Sound playing continuously. Saving audio and ritual state.");
+                                setActiveAlarmAudio(audio);
+                                setRingingRitualTitle(ritual.title);
+                            }).catch(e => console.log("Audio play blocked", e)); 
 
                             if (navigator.vibrate) {
                                 navigator.vibrate([500, 200, 500, 200, 500]);
@@ -2529,6 +2564,80 @@ function AppContent({ onCheckTracking, onShowDetail }) {
                     opacity: 0.9;
                 }
             `}} />
+
+            {activeAlarmAudio && (
+                <div style={{
+                    position: 'fixed',
+                    bottom: '90px',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    width: 'calc(100% - 32px)',
+                    maxWidth: '448px',
+                    background: 'rgba(255, 69, 58, 0.25)',
+                    border: '1px solid rgba(255, 69, 58, 0.4)',
+                    backdropFilter: 'blur(12px)',
+                    WebkitBackdropFilter: 'blur(12px)',
+                    borderRadius: '16px',
+                    padding: '16px 20px',
+                    boxShadow: '0 8px 32px rgba(255, 69, 58, 0.2)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '12px',
+                    zIndex: 9999,
+                    animation: 'pulseGlow 2s infinite ease-in-out'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div style={{
+                            width: '8px',
+                            height: '8px',
+                            borderRadius: '50%',
+                            background: '#FF453A',
+                            animation: 'pulseDot 1s infinite alternate'
+                        }} />
+                        <span style={{ fontSize: '11px', color: '#FF453A', fontWeight: '800', letterSpacing: '1px', textTransform: 'uppercase' }}>
+                            ALARM RITUAL AKTIF
+                        </span>
+                    </div>
+                    <div style={{ textAlign: 'center' }}>
+                        <h4 style={{ margin: '0 0 4px 0', fontSize: '18px', fontWeight: '800', color: '#FFF' }}>
+                            {ringingRitualTitle.toUpperCase()}
+                        </h4>
+                        <p style={{ margin: 0, fontSize: '12px', color: '#EEE' }}>
+                            Saatnya menjalankan komitmen dan kedisiplinan Anda!
+                        </p>
+                    </div>
+                    <button 
+                        onClick={handleStopAlarm}
+                        style={{
+                            width: '100%',
+                            background: '#FF453A',
+                            color: '#FFF',
+                            border: 'none',
+                            padding: '12px',
+                            borderRadius: '12px',
+                            fontWeight: 'bold',
+                            fontSize: '14px',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease',
+                            boxShadow: '0 4px 12px rgba(255, 69, 58, 0.3)'
+                        }}
+                    >
+                        HENTIKAN ALARM
+                    </button>
+                    <style dangerouslySetInnerHTML={{__html: `
+                        @keyframes pulseGlow {
+                            0% { box-shadow: 0 8px 32px rgba(255, 69, 58, 0.2); border-color: rgba(255, 69, 58, 0.4); }
+                            50% { box-shadow: 0 8px 32px rgba(255, 69, 58, 0.5); border-color: rgba(255, 69, 58, 0.8); }
+                            100% { box-shadow: 0 8px 32px rgba(255, 69, 58, 0.2); border-color: rgba(255, 69, 58, 0.4); }
+                        }
+                        @keyframes pulseDot {
+                            0% { transform: scale(0.8); opacity: 0.5; }
+                            100% { transform: scale(1.2); opacity: 1; }
+                        }
+                    `}} />
+                </div>
+            )}
 
             <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />
         </div>
