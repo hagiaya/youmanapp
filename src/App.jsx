@@ -2229,11 +2229,13 @@ function AppContent({ onCheckTracking, onShowDetail }) {
         const checkScheduledTimes = () => {
             const now = new Date();
             const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+            console.log(`[Alarm Checker] Checking scheduled times at ${timeStr}. Active rituals:`, rituals.map(r => `${r.title} (${r.time})`));
             
             rituals.forEach(ritual => {
                 const lastNotifiedKey = `notified_${ritual.id}_${now.getDate()}_${now.getHours()}_${now.getMinutes()}`;
                 
                 if (ritual.time === timeStr && !ritual.completed && !localStorage.getItem(lastNotifiedKey)) {
+                    console.log(`[Alarm Checker] MATCH FOUND! Triggering ritual "${ritual.title}"`);
                     // Kirim Notifikasi Sistem
                     sendSystemNotification(
                         `Waktunya ${ritual.title.toUpperCase()}!`, 
