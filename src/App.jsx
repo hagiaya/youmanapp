@@ -1105,6 +1105,7 @@ const NotificationView = ({ onBack, isAlarmActive, toggleAlarm, userId }) => {
     const handleToggleWa = async () => {
         const newValue = !waNotif;
         setWaNotif(newValue);
+        localStorage.setItem('youman_whatsapp_reminder_enabled', String(newValue));
         if (userId) {
             try {
                 await supabase.from('users').update({ whatsapp_reminder_enabled: newValue }).eq('id', userId);
@@ -1117,6 +1118,7 @@ const NotificationView = ({ onBack, isAlarmActive, toggleAlarm, userId }) => {
     const handleTogglePush = async () => {
         const newValue = !pushNotif;
         setPushNotif(newValue);
+        localStorage.setItem('youman_push_reminder_enabled', String(newValue));
         if (userId) {
             try {
                 await supabase.from('users').update({ push_reminder_enabled: newValue }).eq('id', userId);
